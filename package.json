@@ -1,0 +1,27 @@
+{
+  "name": "opencode-skills-doctor",
+  "version": "0.1.0",
+  "description": "Local scanner, linter and updater for OpenCode skills (SKILL.md / flat markdown)",
+  "type": "module",
+  "bin": {
+    "skills-doctor": "./bin/skills-doctor.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node test/doctor.test.mjs"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md"
+  ],
+  "keywords": [
+    "opencode",
+    "skills",
+    "lint",
+    "cli"
+  ],
+  "license": "MIT"
+}
