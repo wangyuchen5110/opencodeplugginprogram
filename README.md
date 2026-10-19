@@ -1,123 +1,126 @@
 # skills-doctor
 
-OpenCode skill 的**本地检测器 + 更新器**（零依赖，Node ≥ 20）。
+Local scanner, linter and updater for **OpenCode skills** — zero dependencies, Node ≥ 20.
 
-解决的问题：opencode 每个模型步骤都会把所有「有 description 的 skill」的 `ID + name + description` 发给模型；skill 一多、一杂，就会出现**上下文膨胀、描述撞车、同 ID 互相遮蔽、改错文件、静默失效**。这个工具在本地把这些都查出来，并能从 HTTP catalog 更新 skill、校验更新结果。
+**English** | [简体中文](README.zh-CN.md)
 
-## 快速开始
+## Why
+
+On every model step, OpenCode advertises every skill that has a `description` — the model sees `ID + name + description` for each of them. As skills pile up, this turns into **context bloat, colliding descriptions, shadowed IDs, edits to the wrong file, and skills that silently stop working**.
+
+`skills-doctor` surfaces all of that locally, and can also update skills from an HTTP catalog and verify the result.
+
+## Quick start
 
 ```powershell
-# 直接跑（免安装）
-node skills-doctor/bin/skills-doctor.mjs check
+# Run straight from the repo (no install)
+node bin/skills-doctor.mjs check
 
-# 或全局装
-cd skills-doctor
+# Or install it locally
 npm link
 skills-doctor check
 ```
 
-## 命令
+## Commands
 
-### `check`（默认）
+### `check` (default)
 
-扫描所有 skill 来源，输出问题清单、上下文预算和修复建议。
+Scans every skill source, reports problems, the context budget and fix hints.
 
 ```powershell
 skills-doctor check
 skills-doctor check --json
-skills-doctor check --budget 800 --strict    # CI 用
+skills-doctor check --budget 800 --strict    # for CI
 skills-doctor check --root .\some-project --no-global
 ```
 
 ### `scan`
 
-列出所有 skill 及其来源、优先级、是否会被模型看到、token 占用。
+Lists every skill with its source, precedence, whether the model can see it, and token cost.
 
 ```powershell
 skills-doctor scan
 ```
 
-`*` 表示该 ID 的实际生效定义（注册顺序越后优先级越高）。
+`*` marks the definition that actually wins (later registration = higher precedence).
 
-### `update`（更新器）
+### `update` (updater)
 
-从 `opencode.json(c)` 的 `skills` 数组里读取 HTTP catalog，对比 `version`，把有变化的 skill 下载到本地。
+Reads HTTP catalogs from the `skills` array in `opencode.json(c)`, compares `version`, and downloads whatever changed.
 
 ```powershell
-skills-doctor update                 # 默认装进 .opencode/skills（opencode 会直接读取）
-skills-doctor update --check-only    # 只看有没有更新
+skills-doctor update                 # installs into .opencode/skills by default (where opencode reads)
+skills-doctor update --check-only    # only report available updates
 skills-doctor update --into .\team-skills
 ```
 
-- 落盘位置就是 opencode 的 skill 目录 → **更新完 `check` 立刻能检测到**；
-- 写 `.skills-doctor.lock.json`（版本 2：记录每个文件的 sha1）；
-- `check` 会读这个 lock：显示托管版本、发现文件被手改（`managed-drift`）、文件被删（`managed-missing`）；
-- 再跑一次 `update` 会自动重下被改坏的文件（drift 自愈）。
+- The output directory is a real OpenCode skill directory, so **`check` picks the update up immediately**;
+- Writes `.skills-doctor.lock.json` (schema v2: a sha1 for every file);
+- `check` reads that lock: shows managed versions, detects hand edits (`managed-drift`) and missing files (`managed-missing`);
+- Running `update` again re-downloads drifted files (self-healing).
 
-## 检测规则
+## Rules
 
-| 规则 | 级别 | 含义 |
+| Rule | Level | Meaning |
 |---|---|---|
-| `shadowed` | warn | 同一 ID 多处定义，只有一份生效，其余白占体积且容易改错 |
-| `flat-dir-collision` | warn | 同一来源同时存在 `<id>.md` 和 `<id>/SKILL.md` |
-| `duplicate-content` | warn | 不同 skill 正文完全相同 |
-| `near-duplicate-description` | warn | 两个 skill 的 description 相似度 ≥ 75%，模型容易选错 |
-| `missing-description` | info | 没有 description，模型看不到它 |
-| `long-description` | warn | description > 240 字符（每个模型步骤都占上下文） |
-| `large-body` | warn | 正文 > 4000 tokens（调用时整段进上下文） |
-| `token-budget` | warn/error | 模型每步要看的描述总量超过预算（默认 1200） |
-| `too-many-skills` | warn/error | 展示给模型的 skill 超过 60 / 100 个 |
-| `invalid-id` | info | 不符合 kebab-case 规范 |
-| `hidden-skill` | info | 被 `opencode/autoinvoke: false` 或 `disable-model-invocation: true` 隐藏 |
-| `stale-skill` | info | `--stale-days` 指定的天数内没更新 |
-| `managed-drift` | warn | 由 update 安装的文件在更新后被改过 |
-| `managed-missing` | warn | lock 里记录了，但本地文件没了 |
-| `managed-unsafe` | warn | lock 里有路径穿越等不安全路径 |
-| `lock-version-unsupported` | info | lock 版本比工具新，已按兼容模式解析 |
+| `shadowed` | warn | Same ID defined in multiple sources; only one wins, the rest is dead weight and easy to edit by mistake |
+| `flat-dir-collision` | warn | Both `<id>.md` and `<id>/SKILL.md` exist in the same source |
+| `duplicate-content` | warn | Two skills share identical body text |
+| `near-duplicate-description` | warn | Descriptions are ≥ 75% similar; the model may pick the wrong one |
+| `missing-description` | info | No description, so the model never discovers it |
+| `long-description` | warn | Description > 240 chars (paid on every model step) |
+| `large-body` | warn | Body > 4000 tokens (pasted into context when invoked) |
+| `token-budget` | warn/error | Total advertised description tokens exceed the budget (default 1200) |
+| `too-many-skills` | warn/error | More than 60 / 100 skills are advertised |
+| `invalid-id` | info | ID is not kebab-case |
+| `hidden-skill` | info | Hidden via `opencode/autoinvoke: false` or `disable-model-invocation: true` |
+| `stale-skill` | info | Not updated within `--stale-days` |
+| `managed-drift` | warn | A file installed by `update` was modified afterwards |
+| `managed-missing` | warn | Recorded in the lock, but the local file is gone |
+| `managed-unsafe` | warn | Path traversal or another unsafe path in the lock |
+| `lock-version-unsupported` | info | Lock is newer than this tool; parsed in compatibility mode |
 
-## 向上兼容（forward compatibility）
+## Forward compatibility
 
-- **lock**：支持版本 1（字符串版本、无哈希）和版本 2（带文件 sha1）；遇到更高版本时按兼容模式解析，未知字段忽略，只在报告里提示一条 `lock-version-unsupported`。
-- **catalog index.json**：只读 `skills[].name/version/files`，其余字段（未来新增的）一律忽略。
-- **skill frontmatter**：只读 `name/description/metadata.opencode/autoinvoke/disable-model-invocation`，其它字段原样忽略。
-- **路径**：同时支持 2.0 的 `.opencode/skills`、`~/.config/opencode/skills`，以及兼容目录 `.claude/skills`、`.agents/skills`（含逐级向上搜索）。
-- 更新器写出的 lock 固定为当前支持的最高版本，旧检测器不会因为新字段报错。
+- **Lock**: supports v1 (string versions, no hashes) and v2 (per-file sha1). A newer lock version is parsed in compatibility mode, unknown fields are ignored, and a single `lock-version-unsupported` notice is emitted.
+- **Catalog `index.json`**: only `skills[].name/version/files` is read; any future fields are ignored.
+- **Skill frontmatter**: only `name`, `description`, `metadata.opencode/autoinvoke` and `disable-model-invocation` are read; everything else is ignored.
+- **Paths**: both OpenCode 2.0 locations (`.opencode/skills`, `~/.config/opencode/skills`) and compatibility locations (`.claude/skills`, `.agents/skills`, searched upward level by level).
+- The updater always writes the highest lock version this tool supports, so older readers never break on new fields.
 
-## 扫描来源（与官方文档一致）
-
-低 → 高优先级：
+## Discovery sources (low → high precedence)
 
 1. `~/.claude/skills`
-2. 项目 `.claude/skills`（项目根 → 当前目录逐级）
+2. project `.claude/skills` (from the project root up to the current directory)
 3. `~/.agents/skills`
-4. 项目 `.agents/skills`
+4. project `.agents/skills`
 5. `~/.config/opencode/skills`
-6. 项目 `.opencode/skills`
-7. `opencode.json(c)` 的 `skills` 数组（相对路径按当前工作目录解析，支持 `~/`、绝对路径、HTTP catalog）
+6. project `.opencode/skills`
+7. the `skills` array in `opencode.json(c)` (relative paths resolve from the working directory; supports `~/`, absolute paths and HTTP catalogs)
 
-## JSON 输出
+## JSON output
 
-`check --json` / `scan --json` / `update --json` 都会输出结构化 JSON，方便接 CI 或做网页报告。字段包括 `summary`、`findings[]`、`skills[]`（含 `managed: { version, url, root }`）。
+`check --json`, `scan --json` and `update --json` all print structured JSON, ready for CI or a web report. Fields include `summary`, `findings[]` and `skills[]` (with `managed: { version, url, root }`).
 
-## 已知限制
+## Known limitations
 
-- 不联网时 `check` 只做本地检查；catalog 是否有新版本要用 `update --check-only`。
-- token 估算是启发式（CJK 约 1.7 字/token，其余约 4 字符/token），用于横向比较，不是精确计费。
-- 配置优先级假设：全局配置 < 项目配置 < `skills` 数组顺序；如与 opencode 实现有出入，以实际加载结果为准。
-- 还不会自动改文件（v0.2 计划加 `--fix`：归档被遮蔽的定义、规范化 ID、裁剪描述）。
+- `check` is offline; use `update --check-only` to ask a catalog for new versions.
+- Token counts are heuristic (CJK ≈ 1.7 chars/token, the rest ≈ 4 chars/token) — good for comparisons, not for billing.
+- Config precedence is assumed: global config < project config < `skills` array order. If OpenCode differs, trust the runtime.
+- No automatic file rewriting yet (v0.2 plans `--fix`: archive shadowed definitions, normalize IDs, trim descriptions).
 
 ## Roadmap
 
-- v0.2：`--fix` 安全修复；规则可配置（`.skills-doctor.json`）
-- v0.3：opencode 插件形态，把检测结果作为 `skills_doctor` 工具暴露给 agent
-- 后续：V1/Claude skill 兼容迁移报告；catalog 签名校验
+- v0.2: safe `--fix`; configurable rules (`.skills-doctor.json`)
+- v0.3: OpenCode plugin form, exposing the report as a `skills_doctor` tool
+- Later: V1/Claude skill migration report; catalog signature verification
 
-## 开发
+## Development
 
 ```powershell
 npm test
 ```
 
-测试覆盖：frontmatter 解析、来源发现与优先级、遮蔽/重复/预算规则、catalog 下载与 lock、drift 检测与自愈、旧/新 lock 的向上兼容、CLI JSON 与退出码。
+Coverage: frontmatter parsing, source discovery and precedence, shadowing/duplication/budget rules, catalog download and lock, drift detection and self-healing, old/new lock compatibility, CLI JSON output and exit codes.
 
 MIT
