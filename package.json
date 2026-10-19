@@ -23,5 +23,9 @@
     "lint",
     "cli"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wangyuchen5110/opencodeplugginprogram.git"
+  },
   "license": "MIT"
 }
