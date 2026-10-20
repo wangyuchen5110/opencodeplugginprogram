@@ -244,6 +244,16 @@ Windows 上如果 stdio 起不来 `npx`，改成 `command: cmd`、`args: ["/c", 
 
 `check --json` / `scan --json` / `update --json` 都会输出结构化 JSON，方便接 CI 或做网页报告。字段包括 `summary`、`findings[]`、`skills[]`（含 `managed: { version, url, root }`）。
 
+## 安全
+
+这个工具会读写 skill 文件。对真实环境使用前：
+
+- `update` 下载的 catalog 内容**没有签名校验**——把 catalog 当代码对待；
+- `fix` / `--prune` 会移动或删除文件——先 `--dry-run` 预览；
+- 它**不是沙箱**，不限制 agent 能做什么。
+
+完整威胁模型、加固清单和私密漏洞报告方式见 [SECURITY.zh-CN.md](SECURITY.zh-CN.md)。
+
 ## 注意事项与已知限制
 
 **安装 / 插件**

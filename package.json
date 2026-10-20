@@ -1,6 +1,6 @@
 {
   "name": "opencode-skills-doctor",
-  "version": "0.3.8",
+  "version": "0.3.9",
   "description": "Audit, fix and update agent skills: per-step context cost, shadowed duplicates, safe archive, catalog sync. CLI, OpenCode plugin and MCP server (Claude Code / Codex / any MCP client).",
   "type": "module",
   "exports": {
@@ -35,7 +35,9 @@
     "bin",
     "src",
     "README.md",
-    "README.zh-CN.md"
+    "README.zh-CN.md",
+    "SECURITY.md",
+    "SECURITY.zh-CN.md"
   ],
   "keywords": [
     "opencode",

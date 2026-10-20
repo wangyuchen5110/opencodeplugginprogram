@@ -244,6 +244,16 @@ On Windows, if the stdio spawn cannot resolve `npx`, use `command: cmd` and `arg
 
 `check --json`, `scan --json` and `update --json` all print structured JSON, ready for CI or a web report. Fields include `summary`, `findings[]` and `skills[]` (with `managed: { version, url, root }`).
 
+## Security
+
+This tool reads and writes skill files. Before using it against a real setup:
+
+- `update` downloads catalog content **without signature verification** — treat catalogs as code;
+- `fix` / `--prune` move or delete files — preview with `--dry-run` first;
+- it is **not a sandbox** and does not constrain what an agent can do.
+
+See [SECURITY.md](SECURITY.md) for the full threat model, hardening checklist and private vulnerability reporting.
+
 ## Caveats and known limitations
 
 **Install / plugin**
