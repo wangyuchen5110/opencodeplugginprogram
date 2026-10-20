@@ -1,20 +1,26 @@
 {
   "name": "opencode-skills-doctor",
-  "version": "0.3.1",
-  "description": "Local scanner, linter, fixer and updater for OpenCode skills, with an OpenCode plugin entry",
+  "version": "0.3.2",
+  "description": "Local scanner, linter, fixer and updater for OpenCode skills, with OpenCode 2.x and 1.x plugin entries",
   "type": "module",
   "exports": {
     ".": "./src/plugin.mjs",
-    "./plugin": "./src/plugin.mjs"
+    "./plugin": "./src/plugin.mjs",
+    "./v1": "./src/plugin-v1.mjs",
+    "./audit": "./src/audit.mjs"
   },
   "bin": {
     "skills-doctor": "./bin/skills-doctor.mjs"
   },
   "peerDependencies": {
-    "@opencode/plugin": ">=2.0.0"
+    "@opencode/plugin": ">=2.0.0",
+    "@opencode-ai/plugin": ">=1.0.0"
   },
   "peerDependenciesMeta": {
     "@opencode/plugin": {
+      "optional": true
+    },
+    "@opencode-ai/plugin": {
       "optional": true
     }
   },

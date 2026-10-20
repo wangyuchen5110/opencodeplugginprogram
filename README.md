@@ -112,7 +112,24 @@ It registers:
 
 `@opencode/plugin` is an optional peer dependency; OpenCode provides it at runtime.
 
-> The plugin entry requires **OpenCode 2.x**. On OpenCode 1.x use the CLI (`npx opencode-skills-doctor`), which only reads skill files and works on both lines.
+### OpenCode 1.x
+
+1.x uses a different plugin API. Point the `plugin` array at the `/v1` entry:
+
+```jsonc
+// opencode.json (1.x)
+{
+  "plugin": ["opencode-skills-doctor/v1"]
+}
+```
+
+It registers the same `skills_doctor` tool (1.x has no `/skills-doctor` command hook). The package must be installed where OpenCode resolves plugins, e.g.:
+
+```powershell
+npm i --prefix ~/.config/opencode opencode-skills-doctor
+```
+
+> The package root entry (`import "opencode-skills-doctor"`) is the V2 plugin and requires OpenCode 2.x. The CLI works on both lines.
 
 ## Rules
 

@@ -112,7 +112,24 @@ skills-doctor update --into .\team-skills
 
 `@opencode/plugin` 是可选 peer 依赖，运行时由 OpenCode 提供。
 
-> 插件入口要求 **OpenCode 2.x**。1.x 请用 CLI（`npx opencode-skills-doctor`），它只读 skill 文件，两条线都能用。
+### OpenCode 1.x
+
+1.x 用的是另一套插件 API，把 `plugin` 数组指向 `/v1` 入口：
+
+```jsonc
+// opencode.json（1.x）
+{
+  "plugin": ["opencode-skills-doctor/v1"]
+}
+```
+
+它会注册同样的 `skills_doctor` 工具（1.x 没有 `/skills-doctor` 命令钩子）。需要把包装在 OpenCode 能解析插件的位置，例如：
+
+```powershell
+npm i --prefix ~/.config/opencode opencode-skills-doctor
+```
+
+> 包根入口（`import "opencode-skills-doctor"`）是 V2 插件，需要 OpenCode 2.x；CLI 两条线都能用。
 
 ## 检测规则
 
