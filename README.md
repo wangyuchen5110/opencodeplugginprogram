@@ -155,6 +155,32 @@ It registers the same `skills_doctor` tool (1.x has no `/skills-doctor` command 
 
 > The package root entry is the V2 plugin and requires OpenCode 2.x. The CLI works on both lines.
 
+## MCP server (Claude Code, Codex, Kimi Code, any MCP client)
+
+`skills-doctor mcp` speaks the Model Context Protocol over stdio and exposes one tool: `skills_doctor` with arguments `directory?`, `budget?`, `lang?` and `global?`. It does not need OpenCode installed.
+
+Claude Code (`.mcp.json` in the project, or your MCP config):
+
+```json
+{
+  "mcpServers": {
+    "skills-doctor": { "command": "npx", "args": ["-y", "opencode-skills-doctor", "mcp"] }
+  }
+}
+```
+
+Codex (`~/.codex/config.toml`):
+
+```toml
+[mcp_servers.skills-doctor]
+command = "npx"
+args = ["-y", "opencode-skills-doctor", "mcp"]
+```
+
+Any other MCP client: run `npx -y opencode-skills-doctor mcp` and allow the `skills_doctor` tool.
+
+It scans `.opencode/skills`, `.claude/skills` and `.agents/skills` (project and global), so it can audit skills used by other agents too.
+
 ## Rules
 
 | Rule | Level | Meaning |

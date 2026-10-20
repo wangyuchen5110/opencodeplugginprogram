@@ -12,8 +12,10 @@ import { lint, resolveWinners, summarize } from "../src/lint.mjs"
 import { updateCatalogs, validateCatalogEntry } from "../src/catalog.mjs"
 import { planFixes, applyFixes, hideSkills } from "../src/fix.mjs"
 import { auditSkills, formatMarkdown } from "../src/audit.mjs"
+import { handleMessage, toolDefinition, startMcpServer, PROTOCOL_VERSION } from "../src/mcp.mjs"
 import { normalizeLang, translator } from "../src/i18n.mjs"
 import { main } from "../src/cli.mjs"
+import { PassThrough } from "node:stream"
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 
@@ -625,4 +627,55 @@ test("audit: 结构化结果与 markdown 渲染", () => {
   assert.match(md, /^# skills-doctor/)
   assert.match(md, /Findings:/)
   assert.match(md, /alpha/)
+})
+
+test("MCP: initialize / tools/list / tools/call / 错误处理", async () => {
+  const init = await handleMessage({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }, { version: "9.9.9" })
+  assert.equal(init.result.protocolVersion, PROTOCOL_VERSION)
+  assert.equal(init.result.serverInfo.name, "skills-doctor")
+  assert.equal(init.result.serverInfo.version, "9.9.9")
+
+  const list = await handleMessage({ jsonrpc: "2.0", id: 2, method: "tools/list" })
+  assert.equal(list.result.tools.length, 1)
+  assert.equal(list.result.tools[0].name, "skills_doctor")
+  assert.equal(list.result.tools[0].inputSchema.type, "object")
+
+  const project = tmpdir()
+  fs.mkdirSync(path.join(project, ".git"))
+  skill(path.join(project, ".opencode", "skills"), "alpha", "description: alpha skill")
+
+  const call = await handleMessage({
+    jsonrpc: "2.0",
+    id: 3,
+    method: "tools/call",
+    params: { name: "skills_doctor", arguments: { directory: project, lang: "en", global: false } },
+  })
+  assert.match(call.result.content[0].text, /# skills-doctor/)
+  assert.match(call.result.content[0].text, /1 definitions/)
+
+  const unknown = await handleMessage({ jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "nope", arguments: {} } })
+  assert.equal(unknown.error.code, -32602)
+
+  const methodNotFound = await handleMessage({ jsonrpc: "2.0", id: 5, method: "nope/nope" })
+  assert.equal(methodNotFound.error.code, -32601)
+
+  const notification = await handleMessage({ jsonrpc: "2.0", method: "notifications/initialized" })
+  assert.equal(notification, null)
+})
+
+test("MCP: stdio 换行分帧，连续两条消息都回包", async () => {
+  const input = new PassThrough()
+  const output = new PassThrough()
+  startMcpServer({ version: "1.2.3", input, output, onExit: () => {} })
+
+  const lines = []
+  output.on("data", (chunk) => lines.push(...String(chunk).trim().split("\n")))
+  input.write(JSON.stringify({ jsonrpc: "2.0", id: "a", method: "initialize" }) + "\n")
+  input.write(JSON.stringify({ jsonrpc: "2.0", id: "b", method: "tools/list" }) + "\n")
+
+  await new Promise((resolve) => setTimeout(resolve, 150))
+  const messages = lines.filter(Boolean).map((line) => JSON.parse(line))
+  assert.equal(messages.length, 2)
+  assert.equal(messages[0].id, "a")
+  assert.equal(messages[1].result.tools[0].name, "skills_doctor")
 })

@@ -7,10 +7,13 @@ import { inspectManaged } from "./managed.mjs"
 import { planFixes, applyFixes, hideSkills } from "./fix.mjs"
 import { auditSkills } from "./audit.mjs"
 import { loadConfig } from "./config.mjs"
+import { startMcpServer } from "./mcp.mjs"
 import { padDisplay } from "./parse.mjs"
 import { detectLang, normalizeLang, translator } from "./i18n.mjs"
 
-const pkg = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8"))
+const pkg = JSON.parse(
+  fs.readFileSync(new URL("../package.json", import.meta.url), "utf8").replace(/^\uFEFF/, ""),
+)
 
 const color = process.stdout.isTTY && !process.env.NO_COLOR
 const paint = (code, text) => (color ? `\x1b[${code}m${text}\x1b[0m` : text)
@@ -57,7 +60,7 @@ function parseArgs(argv) {
   }
 
   const args = [...argv]
-  const commands = new Set(["check", "scan", "update", "fix", "help"])
+  const commands = new Set(["check", "scan", "update", "fix", "mcp", "help"])
   if (args[0] && commands.has(args[0])) {
     options.command = args.shift()
   }
@@ -422,6 +425,11 @@ export async function main(argv) {
   }
   if (options.version) {
     console.log(pkg.version)
+    return
+  }
+
+  if (options.command === "mcp") {
+    startMcpServer({ version: pkg.version })
     return
   }
 

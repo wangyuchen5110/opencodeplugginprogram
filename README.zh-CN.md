@@ -155,6 +155,32 @@ export { SkillsDoctorPlugin } from "opencode-skills-doctor/v1"
 
 > 包根入口是 V2 插件，需要 OpenCode 2.x；CLI 两条线都能用。
 
+## MCP server（Claude Code、Codex、Kimi Code、任何 MCP 客户端）
+
+`skills-doctor mcp` 用 stdio 讲 Model Context Protocol，只暴露一个工具：`skills_doctor`，参数 `directory?`、`budget?`、`lang?`、`global?`。不需要装 OpenCode。
+
+Claude Code（项目里的 `.mcp.json`，或你的 MCP 配置）：
+
+```json
+{
+  "mcpServers": {
+    "skills-doctor": { "command": "npx", "args": ["-y", "opencode-skills-doctor", "mcp"] }
+  }
+}
+```
+
+Codex（`~/.codex/config.toml`）：
+
+```toml
+[mcp_servers.skills-doctor]
+command = "npx"
+args = ["-y", "opencode-skills-doctor", "mcp"]
+```
+
+其他 MCP 客户端：启动 `npx -y opencode-skills-doctor mcp` 并允许 `skills_doctor` 工具即可。
+
+它扫描 `.opencode/skills`、`.claude/skills`、`.agents/skills`（项目和全局），所以其他 agent 用的 skill 也能一起体检。
+
 ## 检测规则
 
 | 规则 | 级别 | 含义 |

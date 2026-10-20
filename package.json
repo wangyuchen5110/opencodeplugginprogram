@@ -1,7 +1,7 @@
-﻿{
+{
   "name": "opencode-skills-doctor",
-  "version": "0.3.5",
-  "description": "Audit, fix and update OpenCode skills: measure per-step context cost, catch shadowed duplicates, archive safely and sync from catalogs. Works on OpenCode 1.x and 2.x.",
+  "version": "0.3.6",
+  "description": "Audit, fix and update agent skills: per-step context cost, shadowed duplicates, safe archive, catalog sync. CLI, OpenCode plugin and MCP server (Claude Code / Codex / any MCP client).",
   "type": "module",
   "exports": {
     ".": "./src/plugin.mjs",
@@ -40,6 +40,8 @@
   "keywords": [
     "opencode",
     "skills",
+    "agent-skills",
+    "mcp",
     "lint",
     "fix",
     "cli",

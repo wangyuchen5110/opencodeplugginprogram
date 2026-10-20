@@ -10,6 +10,7 @@ Usage:
   skills-doctor scan   [options]   list every skill with its source and precedence
   skills-doctor fix    [options]   archive shadowed definitions (safe structural fixes)
   skills-doctor update [options]   compare and download skills from HTTP catalogs
+  skills-doctor mcp                run as an MCP server (Claude Code, Codex, any MCP client)
 
 Options:
   --root <dir>         working directory (default: current directory)
@@ -151,6 +152,7 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
   skills-doctor scan   [选项]   列出所有 skill 及其来源/优先级
   skills-doctor fix    [选项]   归档被遮蔽的定义（安全的结构性修复）
   skills-doctor update [选项]   对比并拉取 HTTP catalog 里的 skill
+  skills-doctor mcp            以 MCP server 方式运行（Claude Code、Codex 等任何 MCP 客户端）
 
 选项:
   --root <dir>        以该目录为工作目录（默认当前目录）
