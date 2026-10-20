@@ -344,6 +344,53 @@ async function startCatalog(getVersion = () => "1") {
   }
 }
 
+test("更新器：新版本删除旧文件；--prune 清理已下架的 skill", async () => {
+  const state = { version: "1", files: ["SKILL.md", "references/old.md"], active: true }
+  const server = http.createServer((req, res) => {
+    if (req.url === "/skills/index.json") {
+      res.setHeader("content-type", "application/json")
+      res.end(JSON.stringify({ skills: state.active ? [{ name: "hello", version: state.version, files: state.files }] : [] }))
+      return
+    }
+    if (req.url === "/skills/hello/SKILL.md") {
+      res.end(`---\nname: Hello\ndescription: v${state.version}\n---\nbody`)
+      return
+    }
+    if (req.url === "/skills/hello/references/old.md") {
+      res.end("old")
+      return
+    }
+    res.statusCode = 404
+    res.end()
+  })
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve))
+  const url = `http://127.0.0.1:${server.address().port}/skills`
+  const into = tmpdir()
+
+  try {
+    await updateCatalogs([{ url }], { into })
+    assert.ok(fs.existsSync(path.join(into, "hello", "references", "old.md")))
+
+    state.version = "2"
+    state.files = ["SKILL.md"]
+    const second = await updateCatalogs([{ url }], { into })
+    assert.equal(second.results[0].removedFiles.length, 1)
+    assert.ok(!fs.existsSync(path.join(into, "hello", "references", "old.md")))
+    assert.ok(fs.existsSync(path.join(into, "hello", "SKILL.md")))
+
+    state.active = false
+    const orphan = await updateCatalogs([{ url }], { into })
+    assert.deepEqual(orphan.results[0].orphaned, ["hello"])
+    assert.ok(fs.existsSync(path.join(into, "hello", "SKILL.md")))
+
+    const pruned = await updateCatalogs([{ url }], { into, prune: true })
+    assert.deepEqual(pruned.results[0].pruned, ["hello"])
+    assert.ok(!fs.existsSync(path.join(into, "hello")))
+  } finally {
+    await new Promise((resolve) => server.close(resolve))
+  }
+})
+
 test("闭环：update 默认落 .opencode/skills，check 立刻检测到并标记版本", async () => {
   const project = tmpdir()
   fs.mkdirSync(path.join(project, ".git"))

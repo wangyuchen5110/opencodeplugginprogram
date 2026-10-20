@@ -55,6 +55,7 @@ function parseArgs(argv) {
     hide: [],
     into: null,
     checkOnly: false,
+    prune: false,
     help: false,
     version: false,
   }
@@ -111,6 +112,9 @@ function parseArgs(argv) {
         break
       case "--check-only":
         options.checkOnly = true
+        break
+      case "--prune":
+        options.prune = true
         break
       case "-h":
       case "--help":
@@ -299,11 +303,12 @@ async function runUpdate(discovered, options, cwd, t) {
   const { lockPath, results, lockTooNew } = await updateCatalogs(discovered.catalogs, {
     into,
     checkOnly: options.checkOnly,
+    prune: options.prune,
     t,
   })
 
   if (options.json) {
-    console.log(JSON.stringify({ lockPath, checkOnly: options.checkOnly, results }, null, 2))
+    console.log(JSON.stringify({ lockPath, checkOnly: options.checkOnly, prune: options.prune, results }, null, 2))
     return results.some((r) => r.error) ? 1 : 0
   }
 
@@ -329,6 +334,12 @@ async function runUpdate(discovered, options, cwd, t) {
     }
     if (result.unchanged.length) console.log(dim(t("update.unchanged", { count: result.unchanged.length })))
     if (result.files) console.log(dim(t("update.files", { count: result.files })))
+    if (result.removedFiles.length) console.log(dim(t("update.removedFiles", { count: result.removedFiles.length })))
+    if (result.pruned.length) {
+      console.log(yellow(t("update.pruned", { count: result.pruned.length, names: result.pruned.join(", ") })))
+    } else if (result.orphaned.length) {
+      console.log(yellow(t("update.orphaned", { count: result.orphaned.length })))
+    }
     for (const invalid of result.invalid) {
       console.log(yellow(t("update.skipped", { name: invalid.name, problems: invalid.problems.join("; ") })))
     }

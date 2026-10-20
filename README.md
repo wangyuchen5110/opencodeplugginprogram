@@ -89,9 +89,11 @@ skills-doctor update --into .\team-skills
 ```
 
 - The output directory is a real OpenCode skill directory, so **`check` picks the update up immediately**;
+- Overwrites files in place and **deletes files that the new version no longer lists** (no stale leftovers from the old version);
 - Writes `.skills-doctor.lock.json` (schema v2: a sha1 for every file);
 - `check` reads that lock: shows managed versions, detects hand edits (`managed-drift`) and missing files (`managed-missing`);
-- Running `update` again re-downloads drifted files (self-healing).
+- Running `update` again re-downloads drifted files (self-healing);
+- Use `--prune` to delete skills that disappeared from the catalog (by default they are reported but kept).
 
 ## Configuration
 

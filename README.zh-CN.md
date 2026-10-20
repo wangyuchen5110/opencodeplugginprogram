@@ -89,9 +89,11 @@ skills-doctor update --into .\team-skills
 ```
 
 - 落盘位置就是 opencode 的 skill 目录 → **更新完 `check` 立刻能检测到**；
+- 原地覆盖文件，并**删除新版本里已不存在的文件**（不会残留旧版本文件）；
 - 写 `.skills-doctor.lock.json`（v2：记录每个文件的 sha1）；
 - `check` 会读这个 lock：显示托管版本、发现文件被手改（`managed-drift`）、文件被删（`managed-missing`）；
-- 再跑一次 `update` 会自动重下被改坏的文件（drift 自愈）。
+- 再跑一次 `update` 会自动重下被改坏的文件（drift 自愈）；
+- 用 `--prune` 删除 catalog 中已下架的 skill（默认只提示、不删）。
 
 ## 配置
 

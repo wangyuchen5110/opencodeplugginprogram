@@ -68,6 +68,20 @@ function lockEntryVersion(entry) {
   return null
 }
 
+function pruneEmptyDirs(dir, stopDir) {
+  const stop = path.resolve(stopDir)
+  let current = path.resolve(dir)
+  while (current !== stop && current.startsWith(stop + path.sep)) {
+    try {
+      if (fs.readdirSync(current).length > 0) return
+      fs.rmdirSync(current)
+    } catch {
+      return
+    }
+    current = path.dirname(current)
+  }
+}
+
 /** 本地文件是否仍与 lock 里的哈希一致（无哈希时视为一致）。 */
 function filesMatch(into, name, files, t) {
   if (!files || typeof files !== "object") return true
@@ -93,14 +107,27 @@ export async function fetchCatalogIndex(url, { fetchImpl = fetch, timeoutMs = 15
  * 更新器：对比 HTTP catalog 的 version，必要时下载到 into 目录并写 lock。
  * lock 里记录每个文件的 sha1，检测器据此判断「更新后是否被改过」。
  */
-export async function updateCatalogs(catalogs, { into = process.cwd(), checkOnly = false, fetchImpl = fetch, t = translator("en") } = {}) {
+export async function updateCatalogs(
+  catalogs,
+  { into = process.cwd(), checkOnly = false, fetchImpl = fetch, t = translator("en"), prune = false } = {},
+) {
   const lockPath = path.join(into, LOCK_NAME)
   const lock = readLockFile(into) ?? { version: LOCK_VERSION, catalogs: {} }
   const lockTooNew = Number(lock.version ?? 1) > LOCK_VERSION
   const results = []
 
   for (const catalog of catalogs) {
-    const result = { url: catalog.url, error: null, updated: [], unchanged: [], invalid: [], files: 0 }
+    const result = {
+      url: catalog.url,
+      error: null,
+      updated: [],
+      unchanged: [],
+      invalid: [],
+      orphaned: [],
+      pruned: [],
+      removedFiles: [],
+      files: 0,
+    }
     try {
       const { base, skills } = await fetchCatalogIndex(catalog.url, { fetchImpl, t })
       const baseUrl = new URL(base + "/")
@@ -144,8 +171,41 @@ export async function updateCatalogs(catalogs, { into = process.cwd(), checkOnly
           hashes[file] = sha1Buffer(buffer)
           result.files++
         }
+
+        // 新版本里已被删除的文件：从本地清掉，避免旧文件残留
+        if (prevHashes) {
+          for (const oldFile of Object.keys(prevHashes)) {
+            if (entry.files.includes(oldFile)) continue
+            const target = resolveInside(path.join(into, entry.name), oldFile, t)
+            if (!fs.existsSync(target)) continue
+            fs.rmSync(target, { force: true })
+            result.removedFiles.push({ name: entry.name, file: oldFile })
+            pruneEmptyDirs(path.dirname(target), path.join(into, entry.name))
+          }
+        }
+
         nextSkills[entry.name] = { version, files: hashes }
         result.updated.push({ name: entry.name, version, previous: previousVersion, reason: drifted ? "drift" : null })
+      }
+
+      const validNames = new Set(
+        skills.filter((entry) => validateCatalogEntry(entry, t).length === 0).map((entry) => entry.name),
+      )
+      const orphaned = Object.keys(previousSkills).filter((name) => !validNames.has(name))
+      result.orphaned = orphaned
+
+      if (!checkOnly) {
+        if (prune) {
+          for (const name of orphaned) {
+            const dir = resolveInside(into, name, t)
+            if (!fs.existsSync(dir)) continue
+            fs.rmSync(dir, { recursive: true, force: true })
+            result.pruned.push(name)
+          }
+        } else {
+          // 不 prune 时保留 lock 记录，方便下次继续跟踪
+          for (const name of orphaned) nextSkills[name] = previousSkills[name]
+        }
       }
 
       if (!checkOnly) lock.catalogs[catalog.url] = { skills: nextSkills }
