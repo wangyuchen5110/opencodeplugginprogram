@@ -114,22 +114,31 @@ skills-doctor update --into .\team-skills
 
 ### OpenCode 1.x
 
-1.x 用的是另一套插件 API，把 `plugin` 数组指向 `/v1` 入口：
+1.x 用的是另一套插件 API：npm 插件会解析 `./server` 导出，运行时需要 `@opencode-ai/plugin`。最稳的接法是加一个一行的本地插件文件。
 
-```jsonc
-// opencode.json（1.x）
-{
-  "plugin": ["opencode-skills-doctor/v1"]
-}
-```
-
-它会注册同样的 `skills_doctor` 工具（1.x 没有 `/skills-doctor` 命令钩子）。需要把包装在 OpenCode 能解析插件的位置，例如：
+1. 先把包装到 OpenCode 解析插件的位置：
 
 ```powershell
 npm i --prefix ~/.config/opencode opencode-skills-doctor
 ```
 
-> 包根入口（`import "opencode-skills-doctor"`）是 V2 插件，需要 OpenCode 2.x；CLI 两条线都能用。
+2. 新建 `~/.config/opencode/plugins/skills-doctor.js`：
+
+```js
+export { SkillsDoctorPlugin } from "opencode-skills-doctor/v1"
+```
+
+3. 在 `opencode.json` 里引用（1.x 用 `plugin`，不是 `plugins`）：
+
+```jsonc
+{
+  "plugin": ["C:\\Users\\<you>\\.config\\opencode\\plugins\\skills-doctor.js"]
+}
+```
+
+它会注册同样的 `skills_doctor` 工具（1.x 没有 `/skills-doctor` 命令钩子）。
+
+> 包根入口是 V2 插件，需要 OpenCode 2.x；CLI 两条线都能用。
 
 ## 检测规则
 

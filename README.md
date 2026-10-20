@@ -114,22 +114,31 @@ It registers:
 
 ### OpenCode 1.x
 
-1.x uses a different plugin API. Point the `plugin` array at the `/v1` entry:
+1.x uses a different plugin API: it resolves the `./server` export for npm plugins and needs `@opencode-ai/plugin` at runtime. The reliable setup is a one-line local plugin file.
 
-```jsonc
-// opencode.json (1.x)
-{
-  "plugin": ["opencode-skills-doctor/v1"]
-}
-```
-
-It registers the same `skills_doctor` tool (1.x has no `/skills-doctor` command hook). The package must be installed where OpenCode resolves plugins, e.g.:
+1. Install the package where OpenCode resolves plugins:
 
 ```powershell
 npm i --prefix ~/.config/opencode opencode-skills-doctor
 ```
 
-> The package root entry (`import "opencode-skills-doctor"`) is the V2 plugin and requires OpenCode 2.x. The CLI works on both lines.
+2. Create `~/.config/opencode/plugins/skills-doctor.js`:
+
+```js
+export { SkillsDoctorPlugin } from "opencode-skills-doctor/v1"
+```
+
+3. Reference it from `opencode.json` (1.x uses `plugin`, not `plugins`):
+
+```jsonc
+{
+  "plugin": ["C:\\Users\\<you>\\.config\\opencode\\plugins\\skills-doctor.js"]
+}
+```
+
+It registers the same `skills_doctor` tool (1.x has no `/skills-doctor` command hook).
+
+> The package root entry is the V2 plugin and requires OpenCode 2.x. The CLI works on both lines.
 
 ## Rules
 
