@@ -60,6 +60,7 @@ skills-doctor fix --hide academic-paper,deep-research --dry-run   # 隐藏低频
 
 - 只动被遮蔽的重复定义，生效版本永远不会被移动；
 - 由 `update` 安装的文件会跳过——用 `update` 恢复；
+- **默认只处理项目内的 skill**，要动全局来源（`~/.config/opencode/skills` 等）加 `--all`；
 - 修完再跑 `check`，`shadowed` 应该消失。
 
 ### `update`（更新器）
@@ -111,6 +112,8 @@ skills-doctor update --into .\team-skills
 
 `@opencode/plugin` 是可选 peer 依赖，运行时由 OpenCode 提供。
 
+> 插件入口要求 **OpenCode 2.x**。1.x 请用 CLI（`npx opencode-skills-doctor`），它只读 skill 文件，两条线都能用。
+
 ## 检测规则
 
 | 规则 | 级别 | 含义 |
@@ -148,7 +151,7 @@ skills-doctor update --into .\team-skills
 4. 项目 `.agents/skills`
 5. `~/.config/opencode/skills`
 6. 项目 `.opencode/skills`
-7. `opencode.json(c)` 的 `skills` 数组（相对路径按当前工作目录解析，支持 `~/`、绝对路径、HTTP catalog）
+7. `opencode.json(c)` 的 `skills` 数组（2.x）或 `skills.paths`（1.x）；相对路径按当前工作目录解析，支持 `~/`、绝对路径、HTTP catalog
 
 ## JSON 输出
 

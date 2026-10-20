@@ -104,6 +104,11 @@ function configCandidates(dir) {
   return CONFIG_FILES.map((name) => path.join(dir, name))
 }
 
+function isUnder(parent, child) {
+  const rel = path.relative(path.resolve(parent), path.resolve(child))
+  return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel))
+}
+
 /**
  * 按官方文档的注册顺序返回 skill 来源（顺序即优先级，越后越高）：
  *  1. ~/.claude/skills
@@ -158,7 +163,12 @@ export function discoverSources({ cwd = process.cwd(), home = os.homedir(), incl
       missing.push({ kind: "config-error", path: file, error: err.message })
       continue
     }
-    const entries = Array.isArray(config?.skills) ? config.skills : []
+    // 2.x: skills: [...]；1.x: skills: { paths: [...] }
+    const entries = Array.isArray(config?.skills)
+      ? config.skills
+      : Array.isArray(config?.skills?.paths)
+        ? config.skills.paths
+        : []
     for (const entry of entries) {
       if (typeof entry !== "string" || !entry.trim()) continue
       const value = entry.trim()
@@ -168,8 +178,9 @@ export function discoverSources({ cwd = process.cwd(), home = os.homedir(), incl
       }
       const expanded = expandHome(value, home)
       const abs = path.isAbsolute(expanded) ? expanded : path.resolve(cwd, expanded)
-      if (fs.existsSync(abs)) addSource("config-path", "config", abs)
-      else missing.push({ kind: "missing-path", path: abs, entry: value, config: file })
+      if (fs.existsSync(abs)) {
+        addSource("config-path", isUnder(projectRoot, file) ? "project" : "global", abs)
+      } else missing.push({ kind: "missing-path", path: abs, entry: value, config: file })
     }
   }
 

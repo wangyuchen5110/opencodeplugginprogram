@@ -60,6 +60,7 @@ skills-doctor fix --hide academic-paper,deep-research --dry-run   # hide low-fre
 
 - Only shadowed duplicates are touched; the effective definition is never moved;
 - Files installed by `update` are skipped — use `update` to bring them back;
+- Default scope is project-only; pass `--all` to also archive global sources;
 - After fixing, `check` should report no `shadowed` findings.
 
 ### `update` (updater)
@@ -111,6 +112,8 @@ It registers:
 
 `@opencode/plugin` is an optional peer dependency; OpenCode provides it at runtime.
 
+> The plugin entry requires **OpenCode 2.x**. On OpenCode 1.x use the CLI (`npx opencode-skills-doctor`), which only reads skill files and works on both lines.
+
 ## Rules
 
 | Rule | Level | Meaning |
@@ -148,7 +151,7 @@ It registers:
 4. project `.agents/skills`
 5. `~/.config/opencode/skills`
 6. project `.opencode/skills`
-7. the `skills` array in `opencode.json(c)` (relative paths resolve from the working directory; supports `~/`, absolute paths and HTTP catalogs)
+7. the `skills` array in `opencode.json(c)` (2.x) or `skills.paths` (1.x); relative paths resolve from the working directory; supports `~/`, absolute paths and HTTP catalogs
 
 ## JSON output
 

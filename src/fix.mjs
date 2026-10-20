@@ -33,7 +33,7 @@ function archiveTarget(skill, stamp) {
  * 规划安全的结构性修复：只归档「被遮蔽、永远不会加载」的定义。
  * 由更新器管理的文件不碰（应通过 update 恢复）。
  */
-export function planFixes(skills, managed = new Map(), { now = new Date() } = {}) {
+export function planFixes(skills, managed = new Map(), { now = new Date(), includeGlobal = false } = {}) {
   const winners = resolveWinners(skills)
   const byId = new Map()
   for (const skill of skills) {
@@ -44,12 +44,17 @@ export function planFixes(skills, managed = new Map(), { now = new Date() } = {}
   const stamp = now.toISOString().replace(/[:.]/g, "-")
   const plan = []
   const skipped = []
+  const skippedGlobal = []
 
   for (const [id, defs] of byId) {
     if (defs.length <= 1) continue
     const winner = winners.get(id)
     for (const loser of defs) {
       if (loser === winner) continue
+      if (!includeGlobal && loser.source.scope === "global") {
+        skippedGlobal.push(loser)
+        continue
+      }
       if (managed.has(loser.file)) {
         skipped.push(loser)
         continue
@@ -64,7 +69,7 @@ export function planFixes(skills, managed = new Map(), { now = new Date() } = {}
     }
   }
 
-  return { plan, skipped }
+  return { plan, skipped, skippedGlobal }
 }
 
 export function applyFixes(plan, { dryRun = false } = {}) {

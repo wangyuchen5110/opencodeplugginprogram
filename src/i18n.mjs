@@ -21,6 +21,7 @@ Options:
   --lang <en|zh>       output language (default: auto from system locale)
   --config <file>      config file (default: .skills-doctor.json)
   --dry-run            fix: only print what would change
+  --all                fix: also touch global sources (default: project only)
   --hide <ids>         fix: hide skills with metadata.opencode/autoinvoke: false (comma separated)
   --into <dir>         update: output directory (default: .opencode/skills)
   --check-only         update: only report available updates
@@ -79,6 +80,7 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
     "fix.dryRun": "  (dry run: nothing is moved)",
     "fix.moved": "  ✓ archived {from} → {to}",
     "fix.skippedManaged": "  · skipped {path} (installed by the updater; run update instead)",
+    "fix.skippedGlobal": "  · skipped {path} (global skill; pass --all to include)",
     "fix.none": "Nothing to fix.",
     "fix.summary": "{moved} archived, {hidden} hidden, {skipped} skipped",
     "fix.error": "  ✗ failed to archive {path}: {error}",
@@ -160,6 +162,7 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
   --lang <en|zh>      输出语言（默认按系统 locale 自动选择）
   --config <file>     配置文件（默认 .skills-doctor.json）
   --dry-run           fix: 只打印将要变更的内容，不实际修改
+  --all               fix: 同时处理全局来源的 skill（默认只动项目内）
   --hide <ids>        fix: 给指定 skill 加 metadata.opencode/autoinvoke: false（逗号分隔）
   --into <dir>        update 的落盘目录（默认 .opencode/skills）
   --check-only        update 只报告可用更新，不下载
@@ -218,6 +221,7 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
     "fix.dryRun": "  （dry run：不会移动任何文件）",
     "fix.moved": "  ✓ 已归档 {from} → {to}",
     "fix.skippedManaged": "  · 跳过 {path}（由更新器管理，请用 update）",
+    "fix.skippedGlobal": "  · 跳过 {path}（全局 skill，加 --all 才会处理）",
     "fix.none": "没有需要修复的内容。",
     "fix.summary": "归档 {moved} 个，隐藏 {hidden} 个，跳过 {skipped} 个",
     "fix.error": "  ✗ 归档 {path} 失败: {error}",

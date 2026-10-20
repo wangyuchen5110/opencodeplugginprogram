@@ -48,6 +48,7 @@ function parseArgs(argv) {
     lang: null,
     config: null,
     dryRun: false,
+    all: false,
     hide: [],
     into: null,
     checkOnly: false,
@@ -90,6 +91,9 @@ function parseArgs(argv) {
         break
       case "--dry-run":
         options.dryRun = true
+        break
+      case "--all":
+        options.all = true
         break
       case "--hide":
         options.hide.push(
@@ -339,9 +343,12 @@ async function runUpdate(discovered, options, cwd, t) {
 }
 
 function runFix(audit, options, t) {
-  const { plan, skipped } = planFixes(audit.skills, audit.managed)
+  const { plan, skipped, skippedGlobal } = planFixes(audit.skills, audit.managed, { includeGlobal: options.all })
   const archived = applyFixes(plan, { dryRun: options.dryRun })
-  const hidden = options.hide.length ? hideSkills(audit.skills, options.hide, { dryRun: options.dryRun }) : { changed: [], errors: [], missing: [] }
+  const hideCandidates = options.all ? audit.skills : audit.skills.filter((s) => s.source.scope !== "global")
+  const hidden = options.hide.length
+    ? hideSkills(hideCandidates, options.hide, { dryRun: options.dryRun })
+    : { changed: [], errors: [], missing: [] }
 
   const errors = [...archived.errors, ...hidden.errors]
 
@@ -353,9 +360,11 @@ function runFix(audit, options, t) {
           version: pkg.version,
           lang: audit.lang,
           dryRun: options.dryRun,
+          all: options.all,
           archived: archived.moved.map((m) => ({ id: m.id, from: m.from, to: m.target })),
           hidden: hidden.changed,
           skipped: skipped.map((s) => ({ id: s.id, file: s.file })),
+          skippedGlobal: skippedGlobal.map((s) => ({ id: s.id, file: s.file })),
           missing: hidden.missing,
           errors: errors.map((e) => ({ id: e.id, error: e.error })),
         },
@@ -366,7 +375,8 @@ function runFix(audit, options, t) {
     return errors.length ? 1 : 0
   }
 
-  const nothing = !plan.length && !skipped.length && !hidden.changed.length && !hidden.missing.length
+  const nothing =
+    !plan.length && !skipped.length && !skippedGlobal.length && !hidden.changed.length && !hidden.missing.length
   if (nothing) {
     console.log(bold(t("fix.title")))
     console.log(`  ${t("fix.none")}`)
@@ -378,6 +388,7 @@ function runFix(audit, options, t) {
   for (const item of archived.moved) console.log(green(t("fix.moved", { from: item.from, to: item.target })))
   for (const item of hidden.changed) console.log(green(t("fix.hidden", { id: item.id, file: item.file })))
   for (const item of skipped) console.log(dim(t("fix.skippedManaged", { path: item.file })))
+  for (const item of skippedGlobal) console.log(dim(t("fix.skippedGlobal", { path: item.file })))
   for (const id of hidden.missing) console.log(yellow(t("fix.unknownHide", { id })))
   for (const item of errors) console.log(red(t("fix.error", { path: item.file ?? item.from, error: item.error })))
   console.log("")
@@ -385,7 +396,7 @@ function runFix(audit, options, t) {
     t("fix.summary", {
       moved: archived.moved.length,
       hidden: hidden.changed.length,
-      skipped: skipped.length,
+      skipped: skipped.length + skippedGlobal.length,
     }),
   )
   console.log(dim(t("fix.rerun")))

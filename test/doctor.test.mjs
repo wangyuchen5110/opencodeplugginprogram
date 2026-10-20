@@ -298,6 +298,20 @@ test("discovery: 跟随符号链接的 skill 目录（真实环境常见）", (t
   assert.ok(found.skills.some((s) => s.id === "linked"))
 })
 
+test("discovery: 兼容 OpenCode 1.x 的 skills.paths 写法", () => {
+  const home = tmpdir()
+  const project = tmpdir()
+  fs.mkdirSync(path.join(project, ".git"))
+  const external = tmpdir()
+  skill(external, "legacy-skill")
+  write(path.join(project, "opencode.json"), JSON.stringify({ skills: { paths: [external] } }))
+
+  const found = scanAll(discoverSources({ cwd: project, home }))
+  const skillIds = found.skills.map((s) => s.id)
+  assert.ok(skillIds.includes("legacy-skill"))
+  assert.ok(found.sources.some((s) => s.kind === "config-path" && s.dir === external))
+})
+
 test("工具函数: findProjectRoot / pathChain", () => {
   const root = tmpdir()
   fs.mkdirSync(path.join(root, ".git"))
@@ -419,7 +433,7 @@ test("fix: 归档被遮蔽的定义，保留生效版本", () => {
   skill(path.join(project, ".opencode", "skills"), "dup", "description: project dup")
 
   const found = scanAll(discoverSources({ cwd: project, home }))
-  const { plan, skipped } = planFixes(found.skills)
+  const { plan, skipped } = planFixes(found.skills, new Map(), { includeGlobal: true })
   assert.equal(plan.length, 1)
   assert.equal(skipped.length, 0)
 
@@ -444,15 +458,31 @@ test("fix: dry-run 不移动文件；由更新器管理的定义会跳过", () =
   const found = scanAll(discoverSources({ cwd: project, home }))
   const loser = found.skills.find((s) => s.description === "global dup")
 
-  const dry = applyFixes(planFixes(found.skills).plan, { dryRun: true })
+  const dry = applyFixes(planFixes(found.skills, new Map(), { includeGlobal: true }).plan, { dryRun: true })
   assert.equal(dry.moved.length, 1)
   assert.ok(!fs.existsSync(dry.moved[0].target))
   assert.ok(fs.existsSync(loser.file))
 
   const managed = new Map([[loser.file, { version: "1", url: "https://example.com", root: loser.source.dir }]])
-  const managedPlan = planFixes(found.skills, managed)
+  const managedPlan = planFixes(found.skills, managed, { includeGlobal: true })
   assert.equal(managedPlan.plan.length, 0)
   assert.equal(managedPlan.skipped.length, 1)
+})
+
+test("fix: 默认只处理项目来源，全局来源需要 --all", () => {
+  const home = tmpdir()
+  const project = tmpdir()
+  fs.mkdirSync(path.join(project, ".git"))
+  skill(path.join(home, ".config", "opencode", "skills"), "dup", "description: global dup")
+  skill(path.join(project, ".opencode", "skills"), "dup", "description: project dup")
+
+  const found = scanAll(discoverSources({ cwd: project, home }))
+  const defaultPlan = planFixes(found.skills)
+  assert.equal(defaultPlan.plan.length, 0)
+  assert.equal(defaultPlan.skippedGlobal.length, 1)
+
+  const allPlan = planFixes(found.skills, new Map(), { includeGlobal: true })
+  assert.equal(allPlan.plan.length, 1)
 })
 
 test("fix CLI: --dry-run --json 列出将归档的文件", async () => {
