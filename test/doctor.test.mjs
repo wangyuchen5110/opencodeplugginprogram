@@ -13,6 +13,8 @@ import { updateCatalogs, validateCatalogEntry } from "../src/catalog.mjs"
 import { planFixes, applyFixes, hideSkills } from "../src/fix.mjs"
 import { auditSkills, formatMarkdown } from "../src/audit.mjs"
 import { handleMessage, toolDefinition, startMcpServer, PROTOCOL_VERSION } from "../src/mcp.mjs"
+import { installOpenCode } from "../src/install.mjs"
+import { budgetWarning, resetWarningState } from "../src/warning.mjs"
 import { normalizeLang, translator } from "../src/i18n.mjs"
 import { main } from "../src/cli.mjs"
 import { PassThrough } from "node:stream"
@@ -692,6 +694,65 @@ test("fix CLI: --hide --dry-run --json", async () => {
   assert.equal(parsed.hidden.length, 2)
   assert.deepEqual(parsed.missing, ["missing"])
   assert.ok(parsed.dryRun)
+})
+
+test("install: 1.x 写插件入口、命令、配置与 package.json，且幂等", () => {
+  const dir = tmpdir()
+  const first = installOpenCode({ configDir: dir, version: "1.18.4", installPackage: false })
+  assert.equal(first.major, 1)
+  assert.equal(first.errors.length, 0)
+  assert.ok(fs.existsSync(path.join(dir, "plugins", "skills-doctor.js")))
+  assert.ok(fs.existsSync(path.join(dir, "command", "skills-doctor.md")))
+
+  const cfg = JSON.parse(fs.readFileSync(path.join(dir, "opencode.json"), "utf8"))
+  assert.ok(Array.isArray(cfg.plugin))
+  assert.ok(cfg.plugin.some((entry) => entry.endsWith("skills-doctor.js")))
+
+  const pkg = JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf8"))
+  assert.equal(pkg.type, "module")
+
+  const second = installOpenCode({ configDir: dir, version: "1.18.4", installPackage: false })
+  assert.equal(second.errors.length, 0)
+  assert.ok(!second.actions.some((action) => action.startsWith("wrote")))
+  assert.ok(!second.actions.some((action) => action.startsWith("added")))
+})
+
+test("install: 2.x 只写 plugins 数组，保留既有配置", () => {
+  const dir = tmpdir()
+  write(
+    path.join(dir, "opencode.jsonc"),
+    `{\n  "$schema": "https://opencode.ai/config.json",\n  "model": "keep-me"\n}\n`,
+  )
+  const result = installOpenCode({ configDir: dir, version: "2.0.32" })
+  assert.equal(result.major, 2)
+  assert.equal(result.errors.length, 0)
+
+  const cfg = JSON.parse(fs.readFileSync(path.join(dir, "opencode.jsonc"), "utf8"))
+  assert.equal(cfg.model, "keep-me")
+  assert.ok(cfg.plugins.includes("opencode-skills-doctor"))
+})
+
+test("install: --dry-run 不写任何文件", () => {
+  const dir = tmpdir()
+  const result = installOpenCode({ configDir: dir, version: "1.18.4", dryRun: true, installPackage: false })
+  assert.equal(result.dryRun, true)
+  assert.ok(result.actions.some((action) => action.startsWith("[dry-run]")))
+  assert.ok(!fs.existsSync(path.join(dir, "plugins", "skills-doctor.js")))
+  assert.ok(!fs.existsSync(path.join(dir, "opencode.json")))
+})
+
+test("warning: 每个会话最多提示一次，不同会话独立", () => {
+  const project = tmpdir()
+  fs.mkdirSync(path.join(project, ".git"))
+  for (let i = 0; i < 35; i++) {
+    skill(path.join(project, ".opencode", "skills"), `budget-${i}`, `description: ${"x".repeat(300)}`)
+  }
+  resetWarningState()
+
+  const first = budgetWarning({ cwd: project, includeGlobal: false, sessionID: "s1" })
+  assert.ok(first && first.includes("skills-doctor"), "应返回预算预警")
+  assert.equal(budgetWarning({ cwd: project, includeGlobal: false, sessionID: "s1" }), null)
+  assert.ok(budgetWarning({ cwd: project, includeGlobal: false, sessionID: "s2" }))
 })
 
 test("audit: 结构化结果与 markdown 渲染", () => {

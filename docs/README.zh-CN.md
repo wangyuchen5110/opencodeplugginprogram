@@ -157,6 +157,26 @@ export { SkillsDoctorPlugin } from "opencode-skills-doctor/v1"
 
 > 包根入口是 V2 插件，需要 OpenCode 2.x；CLI 两条线都能用。
 
+### 一键深度集成
+
+```powershell
+npx opencode-skills-doctor install
+```
+
+安装器会自动识别 OpenCode 版本并接好：
+
+- **2.x** —— 在 `opencode.json(c)` 里加 `"plugins": ["opencode-skills-doctor"]`；
+- **1.x** —— 把包装进 `~/.config/opencode`、写本地插件入口、生成 `/skills-doctor` 命令、补 `"type": "module"`；
+- 改配置前会备份为 `<config>.bak-<timestamp>`。
+
+支持 `--dry-run` 预览、`--config-dir <dir>` 指定配置目录、`--no-npm` 跳过装包。
+
+装好后你会得到：
+
+- `skills_doctor` 工具；
+- `/skills-doctor` 命令（1.x 是生成的 markdown 命令，2.x 是插件命令）；
+- 当 skill 描述预算超标时，系统提示里会注入一次提醒（每个会话最多一次）。
+
 ## MCP server（Claude Code、Codex、Kimi Code、任何 MCP 客户端）
 
 `skills-doctor mcp` 用 stdio 讲 Model Context Protocol，只暴露一个工具：`skills_doctor`，参数 `directory?`、`budget?`、`lang?`、`global?`。不需要装 OpenCode。

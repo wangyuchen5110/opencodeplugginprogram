@@ -10,6 +10,7 @@ Usage:
   skills-doctor scan   [options]   list every skill with its source and precedence
   skills-doctor fix    [options]   archive shadowed definitions (safe structural fixes)
   skills-doctor update [options]   compare and download skills from HTTP catalogs
+  skills-doctor install [options]  wire the plugin into OpenCode (1.x / 2.x)
   skills-doctor mcp                run as an MCP server (Claude Code, Codex, any MCP client)
 
 Options:
@@ -27,6 +28,8 @@ Options:
   --into <dir>         update: output directory (default: .opencode/skills)
   --check-only         update: only report available updates
   --prune              update: delete skills that disappeared from the catalog
+  --config-dir <dir>   install: OpenCode config directory (default: ~/.config/opencode)
+  --no-npm             install: do not run npm install (1.x)
   -h, --help           show this help
   -v, --version        print version
 
@@ -74,6 +77,13 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
     "update.pruned": "  · pruned {count} skills no longer in the catalog: {names}",
     "update.orphaned": "  ! {count} skills are no longer in the catalog (use --prune to delete them)",
     "update.lock": "  lock: {path} ({name})",
+    "install.title": "OpenCode integration",
+    "install.version": "  OpenCode: {version}",
+    "install.configDir": "  config dir: {dir}",
+    "install.dryRun": "  (dry run: nothing is written)",
+    "install.error": "  ✗ {error}",
+    "install.failed": "Integration failed.",
+    "install.next": "Restart OpenCode to activate.",
     "update.lockTooNew": "  ! lock is newer than this tool; parsed in compatibility mode (unknown fields ignored)",
     "update.detector": "  check now sees these skills ({dir} is where opencode reads)",
     "update.noCatalogs": "No HTTP catalog configured. Add https://... to the skills array in opencode.json(c).",
@@ -156,6 +166,7 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
   skills-doctor scan   [选项]   列出所有 skill 及其来源/优先级
   skills-doctor fix    [选项]   归档被遮蔽的定义（安全的结构性修复）
   skills-doctor update [选项]   对比并拉取 HTTP catalog 里的 skill
+  skills-doctor install [选项]  把插件接入 OpenCode（1.x / 2.x）
   skills-doctor mcp            以 MCP server 方式运行（Claude Code、Codex 等任何 MCP 客户端）
 
 选项:
@@ -173,6 +184,8 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
   --into <dir>        update 的落盘目录（默认 .opencode/skills）
   --check-only        update 只报告可用更新，不下载
   --prune             update: 删除 catalog 中已移除的 skill
+  --config-dir <dir>  install: OpenCode 配置目录（默认 ~/.config/opencode）
+  --no-npm            install: 不执行 npm install（1.x）
   -h, --help          帮助
   -v, --version       版本
 
@@ -220,6 +233,13 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
     "update.pruned": "  · 清理 catalog 中已移除的 skill {count} 个: {names}",
     "update.orphaned": "  ! {count} 个 skill 已不在 catalog 中（加 --prune 可删除本地残留）",
     "update.lock": "  lock: {path}（{name}）",
+    "install.title": "OpenCode 集成",
+    "install.version": "  OpenCode: {version}",
+    "install.configDir": "  配置目录: {dir}",
+    "install.dryRun": "  （dry run：不会写入任何内容）",
+    "install.error": "  ✗ {error}",
+    "install.failed": "集成失败。",
+    "install.next": "重启 OpenCode 生效。",
     "update.lockTooNew": "  ! lock 版本比本工具新，已按兼容模式解析（未知字段忽略）",
     "update.detector": "  check 现在可以直接检测到这些 skill（{dir} 是 opencode 会读取的目录）",
     "update.noCatalogs": "没有配置 HTTP catalog。在 opencode.json(c) 的 skills 数组里写 https://... 即可。",

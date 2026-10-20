@@ -157,6 +157,26 @@ It registers the same `skills_doctor` tool (1.x has no `/skills-doctor` command 
 
 > The package root entry is the V2 plugin and requires OpenCode 2.x. The CLI works on both lines.
 
+### Deep integration (one command)
+
+```powershell
+npx opencode-skills-doctor install
+```
+
+The installer detects your OpenCode version and wires everything up:
+
+- **2.x** — adds `"plugins": ["opencode-skills-doctor"]` to `opencode.json(c)`;
+- **1.x** — installs the package into `~/.config/opencode`, writes the local plugin entry, adds a `/skills-doctor` command, sets `"type": "module"`;
+- backs up the config file as `<config>.bak-<timestamp>` before editing.
+
+Use `--dry-run` to preview, `--config-dir <dir>` for a custom config location, and `--no-npm` to skip the package install.
+
+Once installed you get:
+
+- the `skills_doctor` tool;
+- the `/skills-doctor` command (1.x: generated markdown command; 2.x: plugin command);
+- a one-time system-prompt warning when the skill description budget is exceeded.
+
 ## MCP server (Claude Code, Codex, Kimi Code, any MCP client)
 
 `skills-doctor mcp` speaks the Model Context Protocol over stdio and exposes one tool: `skills_doctor` with arguments `directory?`, `budget?`, `lang?` and `global?`. It does not need OpenCode installed.

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.11
+
+- Added `install` command: one-command OpenCode integration for 1.x/2.x (detects version, backs up config, writes plugin entry, generates the 1.x `/skills-doctor` command).
+- Plugins now inject a one-time system-prompt warning when the skill description budget is exceeded (V1 `experimental.chat.system.transform`, V2 `session.hook("context")`).
+- Tests: 41.
+
 ## 0.3.10
 
 - Performance: near-duplicate description check now computes token sets once and prefilters pairs by a Jaccard upper bound.

@@ -8,6 +8,7 @@ import { planFixes, applyFixes, hideSkills } from "./fix.mjs"
 import { auditSkills } from "./audit.mjs"
 import { loadConfig } from "./config.mjs"
 import { startMcpServer } from "./mcp.mjs"
+import { installOpenCode } from "./install.mjs"
 import { padDisplay } from "./parse.mjs"
 import { detectLang, normalizeLang, translator } from "./i18n.mjs"
 
@@ -56,12 +57,14 @@ function parseArgs(argv) {
     into: null,
     checkOnly: false,
     prune: false,
+    configDir: null,
+    noNpm: false,
     help: false,
     version: false,
   }
 
   const args = [...argv]
-  const commands = new Set(["check", "scan", "update", "fix", "mcp", "help"])
+  const commands = new Set(["check", "scan", "update", "fix", "install", "mcp", "help"])
   if (args[0] && commands.has(args[0])) {
     options.command = args.shift()
   }
@@ -115,6 +118,12 @@ function parseArgs(argv) {
         break
       case "--prune":
         options.prune = true
+        break
+      case "--config-dir":
+        options.configDir = path.resolve(args[++i] ?? ".")
+        break
+      case "--no-npm":
+        options.noNpm = true
         break
       case "-h":
       case "--help":
@@ -441,6 +450,28 @@ export async function main(argv) {
 
   if (options.command === "mcp") {
     startMcpServer({ version: pkg.version })
+    return
+  }
+
+  if (options.command === "install") {
+    const result = installOpenCode({
+      configDir: options.configDir ?? undefined,
+      dryRun: options.dryRun,
+      installPackage: !options.noNpm,
+    })
+    if (options.json) {
+      console.log(JSON.stringify(result, null, 2))
+    } else {
+      console.log(bold(t("install.title")))
+      console.log(dim(t("install.version", { version: result.version ?? "unknown" })))
+      console.log(dim(t("install.configDir", { dir: result.configDir })))
+      if (result.dryRun) console.log(dim(t("install.dryRun")))
+      for (const action of result.actions) console.log(`  · ${action}`)
+      for (const error of result.errors) console.log(red(t("install.error", { error })))
+      console.log("")
+      console.log(result.errors.length ? red(t("install.failed")) : dim(t("install.next")))
+    }
+    process.exitCode = result.errors.length ? 1 : 0
     return
   }
 

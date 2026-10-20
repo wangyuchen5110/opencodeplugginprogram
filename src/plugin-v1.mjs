@@ -1,5 +1,6 @@
 import { tool } from "@opencode-ai/plugin"
 import { auditSkills, formatMarkdown } from "./audit.mjs"
+import { budgetWarning } from "./warning.mjs"
 
 const z = tool.schema
 
@@ -24,6 +25,10 @@ export const SkillsDoctorPlugin = async ({ directory }) => ({
         return formatMarkdown(audit)
       },
     }),
+  },
+  "experimental.chat.system.transform": async (input, output) => {
+    const warning = budgetWarning({ cwd: directory, sessionID: input?.sessionID })
+    if (warning) output.system.push(warning)
   },
 })
 
