@@ -1,7 +1,7 @@
 {
   "name": "opencode-skills-doctor",
-  "version": "0.3.3",
-  "description": "Local scanner, linter, fixer and updater for OpenCode skills, with OpenCode 2.x and 1.x plugin entries",
+  "version": "0.3.4",
+  "description": "Audit, fix and update OpenCode skills: measure per-step context cost, catch shadowed duplicates, archive safely and sync from catalogs. Works on OpenCode 1.x and 2.x.",
   "type": "module",
   "exports": {
     ".": "./src/plugin.mjs",

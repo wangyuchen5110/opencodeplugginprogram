@@ -8,9 +8,24 @@ Local scanner, linter, fixer, updater and **OpenCode plugin** for skills — zer
 
 ## Why
 
-On every model step, OpenCode advertises every skill that has a `description` — the model sees `ID + name + description` for each of them. As skills pile up, this turns into **context bloat, colliding descriptions, shadowed IDs, edits to the wrong file, and skills that silently stop working**.
+On every model step, OpenCode advertises every skill that has a `description` — the model sees `ID + name + description` for each of them. Skills are not free: they are a permanent context tax on every request.
 
-`skills-doctor` surfaces all of that locally, and can also update skills from an HTTP catalog and verify the result.
+**What this costs.** 29 skills with long descriptions ≈ **3,000+ tokens every step**. Over a 100-step session that is ~300k tokens of pure overhead — spent before the model reads a single line of your code.
+
+**What can go wrong.** As skills pile up:
+- duplicate IDs silently shadow each other — you may be editing a file that never loads;
+- descriptions drift until the model picks the wrong skill;
+- half the catalog is dead weight nobody noticed.
+
+**What `skills-doctor` does.** It measures the cost, shows which definition actually wins, and fixes it:
+
+- `check` — report duplicates/shadowing, long descriptions, oversized bodies and the per-step token budget, with fix hints;
+- `scan` — list every skill with its source, precedence and cost;
+- `fix` — archive shadowed duplicates (reversible) or hide low-frequency skills (`autoinvoke: false`, still loadable with `@id`);
+- `update` — sync skills from HTTP catalogs by version, with a lockfile and drift detection;
+- plugin — expose the audit as a `skills_doctor` tool / `/skills-doctor` command inside OpenCode.
+
+Works as a CLI and a plugin on **OpenCode 1.x and 2.x**.
 
 ## Quick start
 
@@ -183,12 +198,28 @@ It registers the same `skills_doctor` tool (1.x has no `/skills-doctor` command 
 
 `check --json`, `scan --json` and `update --json` all print structured JSON, ready for CI or a web report. Fields include `summary`, `findings[]` and `skills[]` (with `managed: { version, url, root }`).
 
-## Known limitations
+## Caveats and known limitations
 
-- `check` is offline; use `update --check-only` to ask a catalog for new versions.
+**Install / plugin**
+
+- OpenCode **2.x**: add `"plugins": ["opencode-skills-doctor"]` to `opencode.jsonc` — done.
+- OpenCode **1.x**: needs `npm i --prefix ~/.config/opencode opencode-skills-doctor` plus a one-line local plugin file (`export { SkillsDoctorPlugin } from "opencode-skills-doctor/v1"`), because 1.x resolves plugins differently and `@opencode-ai/plugin` is an optional peer.
+- 1.x has **no `/skills-doctor` command** — only the `skills_doctor` tool.
+
+**Safety / behavior**
+
+- `fix` defaults to **project-only**; pass `--all` to touch global sources. Archived files go to `.skills-doctor-archive/<timestamp>/` (reversible; originals are moved, not deleted).
+- `fix` only touches **shadowed** definitions. It never edits the effective skill and never rewrites descriptions or bodies.
+- `fix --hide` only adds `metadata.opencode/autoinvoke: false`; the skill stays loadable with `@id`.
+- Shadowing follows OpenCode's precedence: later registration wins; on a tie, the `SKILL.md` directory form wins. If the runtime disagrees, trust the runtime.
+- This is **not** a security sandbox: it audits configuration and files, it does not constrain what the agent can do.
+
+**Measurement**
+
+- The default `budget` (1200 tokens) is a recommendation, not a hard limit. Tune it with `.skills-doctor.json` or `--budget`.
 - Token counts are heuristic (CJK ≈ 1.7 chars/token, the rest ≈ 4 chars/token) — good for comparisons, not for billing.
-- Config precedence is assumed: global config < project config < `skills` array order. If OpenCode differs, trust the runtime.
-- No automatic file rewriting yet (v0.2 plans `--fix`: archive shadowed definitions, normalize IDs, trim descriptions).
+- `check` is offline; ask a catalog for new versions with `update --check-only`.
+- Config precedence is assumed: global config < project config < `skills` array order.
 
 ## Roadmap
 

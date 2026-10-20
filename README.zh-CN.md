@@ -8,9 +8,24 @@ OpenCode skill 的**本地检测器 + 更新器 + 修复器**，并附带 **Open
 
 ## 为什么需要它
 
-opencode 每个模型步骤都会把所有「有 description 的 skill」展示给模型（`ID + name + description`）。skill 一多、一杂，就会出现**上下文膨胀、描述撞车、同 ID 互相遮蔽、改错文件、静默失效**。
+opencode 每个模型步骤都会把所有「有 description 的 skill」展示给模型（`ID + name + description`）。skill 不是免费的——它是**每一次请求都要交的上下文税**。
 
-`skills-doctor` 在本地把这些都查出来，并且能从 HTTP catalog 更新 skill、校验更新结果。
+**成本有多大**：29 个 skill、描述偏长，就是**每步 3000+ tokens**。一次 100 步的会话，光 skill 目录就烧掉约 30 万 tokens，模型还没开始读你一行代码。
+
+**会出什么问题**：skill 越攒越多，就会出现
+- 同 ID 互相遮蔽——你改的可能是一份永远不会加载的文件；
+- 描述越来越像，模型选错 skill；
+- 一堆没人注意的死重。
+
+**`skills-doctor` 做什么**：把成本量出来、把「谁真正生效」指出来，并直接修：
+
+- `check` —— 报告重复/遮蔽、超长描述、超大正文、每步 token 预算，并给修复建议；
+- `scan` —— 列出每个 skill 的来源、优先级和成本；
+- `fix` —— 归档被遮蔽的重复定义（可逆），或隐藏低频 skill（`autoinvoke: false`，仍可 `@id` 加载）；
+- `update` —— 按版本从 HTTP catalog 同步 skill，带 lockfile 和 drift 检测；
+- 插件 —— 在 OpenCode 会话里暴露 `skills_doctor` 工具 / `/skills-doctor` 命令。
+
+CLI 和插件都同时支持 **OpenCode 1.x 和 2.x**。
 
 ## 快速开始
 
@@ -183,12 +198,28 @@ export { SkillsDoctorPlugin } from "opencode-skills-doctor/v1"
 
 `check --json` / `scan --json` / `update --json` 都会输出结构化 JSON，方便接 CI 或做网页报告。字段包括 `summary`、`findings[]`、`skills[]`（含 `managed: { version, url, root }`）。
 
-## 已知限制
+## 注意事项与已知限制
 
-- 不联网时 `check` 只做本地检查；catalog 是否有新版本要用 `update --check-only`。
-- token 估算是启发式（CJK 约 1.7 字/token，其余约 4 字符/token），用于横向比较，不是精确计费。
-- 配置优先级假设：全局配置 < 项目配置 < `skills` 数组顺序；如与 opencode 实现有出入，以实际加载结果为准。
-- 还不会自动改文件（v0.2 计划加 `--fix`：归档被遮蔽的定义、规范化 ID、裁剪描述）。
+**安装 / 插件**
+
+- OpenCode **2.x**：在 `opencode.jsonc` 加 `"plugins": ["opencode-skills-doctor"]` 即可。
+- OpenCode **1.x**：需要 `npm i --prefix ~/.config/opencode opencode-skills-doctor`，再加一个一行本地插件文件（`export { SkillsDoctorPlugin } from "opencode-skills-doctor/v1"`）——因为 1.x 解析插件的机制不同，且 `@opencode-ai/plugin` 是可选 peer 依赖。
+- 1.x **没有 `/skills-doctor` 命令**，只有 `skills_doctor` 工具。
+
+**安全性 / 行为**
+
+- `fix` 默认**只处理项目内**；要动全局来源加 `--all`。归档文件进入 `.skills-doctor-archive/<时间戳>/`（可逆，是移动不是删除）。
+- `fix` 只处理**被遮蔽**的定义，永远不改生效版本，也不会重写描述或正文。
+- `fix --hide` 只加 `metadata.opencode/autoinvoke: false`，skill 仍可用 `@id` 加载。
+- 遮蔽判定遵循 OpenCode 优先级：注册越后越优先；同序时 `SKILL.md` 目录形式优先。如与实际运行不一致，以实际运行为准。
+- 它**不是安全沙箱**：只审计配置和文件，不限制 agent 能做什么。
+
+**度量**
+
+- 默认 `budget`（1200 tokens）是建议值，不是硬限制；用 `.skills-doctor.json` 或 `--budget` 调整。
+- token 是启发式估算（CJK 约 1.7 字/token，其余约 4 字符/token），用于横向比较，不是精确计费。
+- `check` 不联网；要看 catalog 新版本用 `update --check-only`。
+- 配置优先级假设：全局配置 < 项目配置 < `skills` 数组顺序。
 
 ## Roadmap
 
