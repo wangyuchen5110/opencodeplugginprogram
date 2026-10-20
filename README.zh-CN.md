@@ -2,7 +2,7 @@
 
 [![test](https://github.com/wangyuchen5110/opencodeplugginprogram/actions/workflows/test.yml/badge.svg)](https://github.com/wangyuchen5110/opencodeplugginprogram/actions/workflows/test.yml)
 
-OpenCode skill 的**本地检测器 + 更新器** —— 零依赖，Node ≥ 20。
+OpenCode skill 的**本地检测器 + 更新器 + 修复器**，并附带 **OpenCode 插件入口** —— 零依赖，Node ≥ 20。
 
 [English](README.md) | **简体中文**
 
@@ -55,6 +55,7 @@ skills-doctor scan
 ```powershell
 skills-doctor fix --dry-run   # 预览会归档哪些
 skills-doctor fix
+skills-doctor fix --hide academic-paper,deep-research --dry-run   # 隐藏低频 skill，给预算减压
 ```
 
 - 只动被遮蔽的重复定义，生效版本永远不会被移动；
@@ -75,6 +76,40 @@ skills-doctor update --into .\team-skills
 - 写 `.skills-doctor.lock.json`（v2：记录每个文件的 sha1）；
 - `check` 会读这个 lock：显示托管版本、发现文件被手改（`managed-drift`）、文件被删（`managed-missing`）；
 - 再跑一次 `update` 会自动重下被改坏的文件（drift 自愈）。
+
+## 配置
+
+在工作目录放一个可选的 `.skills-doctor.json`（或用 `--config <file>` 指定）：
+
+```json
+{
+  "budget": 1200,
+  "staleDays": 180,
+  "lang": "en",
+  "rules": { "long-description": "off", "hidden-skill": "info" },
+  "ignore": ["legacy-skill"]
+}
+```
+
+`rules` 接受 `off` / `info` / `warn` / `error`；`ignore` 会丢掉只涉及这些 ID 的 finding。命令行参数优先级高于配置文件。
+
+## OpenCode 插件
+
+这个包同时导出 OpenCode 2.x 插件：
+
+```jsonc
+// opencode.jsonc
+{
+  "plugins": ["opencode-skills-doctor"]
+}
+```
+
+它会注册：
+
+- `skills_doctor` 工具（命名空间 `skills`）—— agent 传 `{ directory?, budget? }` 就能拿到 markdown 审计报告；
+- `/skills-doctor` 命令 —— 让 agent 跑一次审计并总结修复建议。
+
+`@opencode/plugin` 是可选 peer 依赖，运行时由 OpenCode 提供。
 
 ## 检测规则
 
@@ -128,9 +163,8 @@ skills-doctor update --into .\team-skills
 
 ## Roadmap
 
-- v0.3：opencode 插件形态，把检测结果作为 `skills_doctor` 工具暴露给 agent
-- v0.4：规则可配置（`.skills-doctor.json`）；`fix` 扩展到内容层面的问题（截断超长 description、隐藏低频 skill）
-- 后续：V1/Claude skill 兼容迁移报告；catalog 签名校验
+- v0.4：内容层面的建议（哪些 skill 从未被使用）、catalog 签名校验
+- 后续：V1/Claude skill 兼容迁移报告
 
 ## 开发
 

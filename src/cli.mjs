@@ -1,10 +1,12 @@
 import fs from "node:fs"
 import path from "node:path"
 import { discoverSources, scanAll } from "./discover.mjs"
-import { lint, resolveWinners, summarize, SEVERITY_ORDER } from "./lint.mjs"
+import { resolveWinners, SEVERITY_ORDER } from "./lint.mjs"
 import { updateCatalogs, LOCK_NAME } from "./catalog.mjs"
 import { inspectManaged } from "./managed.mjs"
-import { planFixes, applyFixes } from "./fix.mjs"
+import { planFixes, applyFixes, hideSkills } from "./fix.mjs"
+import { auditSkills } from "./audit.mjs"
+import { loadConfig } from "./config.mjs"
 import { padDisplay } from "./parse.mjs"
 import { detectLang, normalizeLang, translator } from "./i18n.mjs"
 
@@ -39,12 +41,14 @@ function parseArgs(argv) {
     command: "check",
     root: process.cwd(),
     global: true,
-    budget: 1200,
-    staleDays: 0,
+    budget: null,
+    staleDays: null,
     strict: false,
     json: false,
     lang: null,
+    config: null,
     dryRun: false,
+    hide: [],
     into: null,
     checkOnly: false,
     help: false,
@@ -81,8 +85,19 @@ function parseArgs(argv) {
       case "--lang":
         options.lang = args[++i] ?? null
         break
+      case "--config":
+        options.config = args[++i] ?? null
+        break
       case "--dry-run":
         options.dryRun = true
+        break
+      case "--hide":
+        options.hide.push(
+          ...String(args[++i] ?? "")
+            .split(",")
+            .map((id) => id.trim())
+            .filter(Boolean),
+        )
         break
       case "--into":
         options.into = path.resolve(args[++i] ?? ".")
@@ -106,8 +121,8 @@ function parseArgs(argv) {
     }
   }
 
-  if (!Number.isFinite(options.budget) || options.budget <= 0) options.budget = 1200
-  if (!Number.isFinite(options.staleDays) || options.staleDays < 0) options.staleDays = 0
+  if (options.budget !== null && (!Number.isFinite(options.budget) || options.budget <= 0)) options.budget = null
+  if (options.staleDays !== null && (!Number.isFinite(options.staleDays) || options.staleDays < 0)) options.staleDays = null
   return options
 }
 
@@ -130,44 +145,43 @@ function serializeSkills(skills, managed = new Map()) {
   }))
 }
 
-function runCheck(discovered, options, managedInfo, t) {
-  const findings = [
-    ...lint(discovered.skills, { budget: options.budget, staleDays: options.staleDays, t }),
-    ...managedInfo.findings,
-  ].sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity])
-  const summary = summarize(discovered.skills)
-  const errors = findings.filter((f) => f.severity === "error").length
-  const warnings = findings.filter((f) => f.severity === "warn").length
-  const infos = findings.filter((f) => f.severity === "info").length
-  const exitCode = errors > 0 || (options.strict && warnings > 0) ? 1 : 0
-
+function buildCheckResult(audit, options) {
   return {
     tool: "skills-doctor",
     version: pkg.version,
-    cwd: path.resolve(options.root),
-    projectRoot: discovered.projectRoot,
-    sources: discovered.sources.map((s) => ({
+    lang: audit.lang,
+    cwd: audit.cwd,
+    projectRoot: audit.projectRoot,
+    config: audit.config,
+    budget: audit.budget,
+    staleDays: audit.staleDays,
+    sources: audit.sources.map((s) => ({
       kind: s.kind,
       scope: s.scope,
       dir: s.dir,
       order: s.order,
       exists: fs.existsSync(s.dir),
     })),
-    catalogs: discovered.catalogs,
-    missing: discovered.missing,
-    summary,
-    managed: { count: managedInfo.managed.size },
-    findings,
-    counts: { errors, warnings, infos },
-    exitCode,
+    catalogs: audit.catalogs,
+    missing: audit.missing,
+    summary: audit.summary,
+    managed: { count: audit.managed.size },
+    findings: audit.findings,
+    counts: audit.counts,
+    exitCode: audit.counts.errors > 0 || (options.strict && audit.counts.warnings > 0) ? 1 : 0,
   }
 }
 
-function printCheck(result, options, t) {
-  const { summary, counts } = result
+function printCheck(audit, result, options, t) {
+  const { summary, counts } = audit
   console.log(bold(t("check.title", { version: result.version })))
   console.log(dim(t("check.workdir", { dir: result.cwd })))
   console.log(dim(t("check.projectRoot", { dir: result.projectRoot })))
+  if (result.config.error) {
+    console.log(yellow(t("config.error", { file: result.config.file, error: result.config.error })))
+  } else if (fs.existsSync(result.config.file)) {
+    console.log(dim(t("check.config", { file: result.config.file })))
+  }
   console.log(
     t("check.sources", {
       total: result.sources.length,
@@ -178,16 +192,12 @@ function printCheck(result, options, t) {
       tokens: summary.advertisedTokens,
     }),
   )
-  if (result.catalogs.length) {
-    console.log(dim(t("check.catalogs", { count: result.catalogs.length })))
-  }
-  if (result.managed.count > 0) {
-    console.log(dim(t("check.managed", { count: result.managed.count })))
-  }
+  if (result.catalogs.length) console.log(dim(t("check.catalogs", { count: result.catalogs.length })))
+  if (result.managed.count > 0) console.log(dim(t("check.managed", { count: result.managed.count })))
   for (const missing of result.missing) {
     if (missing.kind === "config-error") {
       console.log(yellow(t("check.configError", { path: missing.path, error: missing.error })))
-    } else {
+    } else if (missing.kind === "missing-path") {
       console.log(yellow(t("check.missingPath", { path: missing.path })))
     }
   }
@@ -328,9 +338,12 @@ async function runUpdate(discovered, options, cwd, t) {
   return results.some((r) => r.error) ? 1 : 0
 }
 
-function runFix(discovered, options, managedInfo, t) {
-  const { plan, skipped } = planFixes(discovered.skills, managedInfo.managed)
-  const { moved, errors } = applyFixes(plan, { dryRun: options.dryRun })
+function runFix(audit, options, t) {
+  const { plan, skipped } = planFixes(audit.skills, audit.managed)
+  const archived = applyFixes(plan, { dryRun: options.dryRun })
+  const hidden = options.hide.length ? hideSkills(audit.skills, options.hide, { dryRun: options.dryRun }) : { changed: [], errors: [], missing: [] }
+
+  const errors = [...archived.errors, ...hidden.errors]
 
   if (options.json) {
     console.log(
@@ -338,10 +351,13 @@ function runFix(discovered, options, managedInfo, t) {
         {
           tool: "skills-doctor",
           version: pkg.version,
+          lang: audit.lang,
           dryRun: options.dryRun,
-          archived: moved.map((m) => ({ id: m.id, from: m.from, to: m.target })),
+          archived: archived.moved.map((m) => ({ id: m.id, from: m.from, to: m.target })),
+          hidden: hidden.changed,
           skipped: skipped.map((s) => ({ id: s.id, file: s.file })),
-          errors: errors.map((e) => ({ id: e.id, from: e.from, error: e.error })),
+          missing: hidden.missing,
+          errors: errors.map((e) => ({ id: e.id, error: e.error })),
         },
         null,
         2,
@@ -350,7 +366,8 @@ function runFix(discovered, options, managedInfo, t) {
     return errors.length ? 1 : 0
   }
 
-  if (!plan.length && !skipped.length) {
+  const nothing = !plan.length && !skipped.length && !hidden.changed.length && !hidden.missing.length
+  if (nothing) {
     console.log(bold(t("fix.title")))
     console.log(`  ${t("fix.none")}`)
     return 0
@@ -358,11 +375,19 @@ function runFix(discovered, options, managedInfo, t) {
 
   console.log(bold(t("fix.title")))
   if (options.dryRun) console.log(dim(t("fix.dryRun")))
-  for (const item of moved) console.log(green(t("fix.moved", { from: item.from, to: item.target })))
+  for (const item of archived.moved) console.log(green(t("fix.moved", { from: item.from, to: item.target })))
+  for (const item of hidden.changed) console.log(green(t("fix.hidden", { id: item.id, file: item.file })))
   for (const item of skipped) console.log(dim(t("fix.skippedManaged", { path: item.file })))
-  for (const item of errors) console.log(red(t("fix.error", { path: item.from, error: item.error })))
+  for (const id of hidden.missing) console.log(yellow(t("fix.unknownHide", { id })))
+  for (const item of errors) console.log(red(t("fix.error", { path: item.file ?? item.from, error: item.error })))
   console.log("")
-  console.log(t("fix.summary", { moved: moved.length, skipped: skipped.length }))
+  console.log(
+    t("fix.summary", {
+      moved: archived.moved.length,
+      hidden: hidden.changed.length,
+      skipped: skipped.length,
+    }),
+  )
   console.log(dim(t("fix.rerun")))
   return errors.length ? 1 : 0
 }
@@ -374,7 +399,10 @@ export async function main(argv) {
     console.error(`unsupported --lang: ${options.lang} (expected en or zh)`)
     process.exit(2)
   }
-  const lang = normalizeLang(options.lang) ?? detectLang()
+
+  const cwd = path.resolve(options.root)
+  const loaded = loadConfig(cwd, options.config)
+  const lang = normalizeLang(options.lang) ?? normalizeLang(loaded.config.lang) ?? detectLang()
   const t = translator(lang)
 
   if (options.help || options.command === "help") {
@@ -386,7 +414,33 @@ export async function main(argv) {
     return
   }
 
-  const cwd = path.resolve(options.root)
+  if (options.command === "check") {
+    const audit = auditSkills({
+      cwd,
+      includeGlobal: options.global,
+      lang,
+      configPath: options.config,
+      budget: options.budget,
+      staleDays: options.staleDays,
+    })
+    if (options.json) {
+      console.log(
+        JSON.stringify(
+          { ...buildCheckResult(audit, options), skills: serializeSkills(audit.skills, audit.managed) },
+          null,
+          2,
+        ),
+      )
+    } else {
+      const result = buildCheckResult(audit, options)
+      printCheck(audit, result, options, t)
+      process.exitCode = result.exitCode
+      return
+    }
+    process.exitCode = buildCheckResult(audit, options).exitCode
+    return
+  }
+
   const discovered = scanAll(discoverSources({ cwd, includeGlobal: options.global }))
   const managedInfo = inspectManaged(discovered.scans, { t })
 
@@ -417,15 +471,14 @@ export async function main(argv) {
   }
 
   if (options.command === "fix") {
-    process.exitCode = runFix(discovered, options, managedInfo, t)
-    return
+    const audit = auditSkills({
+      cwd,
+      includeGlobal: options.global,
+      lang,
+      configPath: options.config,
+      budget: options.budget,
+      staleDays: options.staleDays,
+    })
+    process.exitCode = runFix(audit, options, t)
   }
-
-  const result = runCheck(discovered, options, managedInfo, t)
-  if (options.json) {
-    console.log(JSON.stringify({ ...result, lang, skills: serializeSkills(discovered.skills, managedInfo.managed) }, null, 2))
-  } else {
-    printCheck(result, options, t)
-  }
-  process.exitCode = result.exitCode
 }

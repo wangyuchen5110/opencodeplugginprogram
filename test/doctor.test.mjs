@@ -10,7 +10,8 @@ import { parseFrontmatter, estimateTokens, displayWidth } from "../src/parse.mjs
 import { discoverSources, scanAll, stripJsonc, findProjectRoot, pathChain } from "../src/discover.mjs"
 import { lint, resolveWinners, summarize } from "../src/lint.mjs"
 import { updateCatalogs, validateCatalogEntry } from "../src/catalog.mjs"
-import { planFixes, applyFixes } from "../src/fix.mjs"
+import { planFixes, applyFixes, hideSkills } from "../src/fix.mjs"
+import { auditSkills, formatMarkdown } from "../src/audit.mjs"
 import { normalizeLang, translator } from "../src/i18n.mjs"
 import { main } from "../src/cli.mjs"
 
@@ -502,4 +503,96 @@ test("i18n CLI: --lang zh 输出中文 finding 文案", async () => {
   const enParsed = JSON.parse(enRun.output)
   const enShadowed = enParsed.findings.find((f) => f.rule === "shadowed")
   assert.match(enShadowed.message, /shadowed/)
+})
+
+test("config: budget 与规则覆盖生效", async () => {
+  const project = tmpdir()
+  fs.mkdirSync(path.join(project, ".git"))
+  skill(path.join(project, ".opencode", "skills"), "cfg", `description: ${"z".repeat(300)}`)
+  write(
+    path.join(project, ".skills-doctor.json"),
+    JSON.stringify({ budget: 1, rules: { "long-description": "off" } }),
+  )
+
+  const result = await runCli(["check", "--root", project, "--no-global", "--json"])
+  const parsed = JSON.parse(result.output)
+  assert.equal(parsed.config.budget, 1)
+  assert.ok(parsed.findings.some((f) => f.rule === "token-budget"))
+  assert.ok(!parsed.findings.some((f) => f.rule === "long-description"))
+})
+
+test("config: ignore 列表过滤对应 finding", async () => {
+  const project = tmpdir()
+  fs.mkdirSync(path.join(project, ".git"))
+  skill(path.join(project, ".opencode", "skills"), "chatty", `description: ${"q".repeat(300)}`)
+  write(path.join(project, ".skills-doctor.json"), JSON.stringify({ ignore: ["chatty"] }))
+
+  const result = await runCli(["check", "--root", project, "--no-global", "--json"])
+  const parsed = JSON.parse(result.output)
+  assert.equal(parsed.findings.length, 0)
+})
+
+test("fix --hide: 写入 autoinvoke:false，dry-run 不改文件", () => {
+  const home = tmpdir()
+  const project = tmpdir()
+  fs.mkdirSync(path.join(project, ".git"))
+  skill(path.join(project, ".opencode", "skills"), "visible", "description: visible skill")
+  const file = path.join(project, ".opencode", "skills", "visible", "SKILL.md")
+
+  const found = scanAll(discoverSources({ cwd: project, home }))
+  const dry = hideSkills(found.skills, ["visible"], { dryRun: true })
+  assert.equal(dry.changed.length, 1)
+  assert.ok(!parseFrontmatter(fs.readFileSync(file, "utf8")).data.metadata)
+
+  hideSkills(found.skills, ["visible"])
+  const fm = parseFrontmatter(fs.readFileSync(file, "utf8"))
+  assert.equal(fm.data.metadata["opencode/autoinvoke"], false)
+  assert.match(fm.body, /body/)
+
+  const after = scanAll(discoverSources({ cwd: project, home }))
+  assert.equal(after.skills[0].hidden, true)
+})
+
+test("fix --hide: 没有 frontmatter 的文件也能加", () => {
+  const home = tmpdir()
+  const project = tmpdir()
+  fs.mkdirSync(path.join(project, ".git"))
+  const file = path.join(project, ".opencode", "skills", "plain.md")
+  write(file, "just body text")
+
+  const found = scanAll(discoverSources({ cwd: project, home }))
+  hideSkills(found.skills, ["plain"])
+  const fm = parseFrontmatter(fs.readFileSync(file, "utf8"))
+  assert.equal(fm.data.metadata["opencode/autoinvoke"], false)
+  assert.match(fm.body, /just body text/)
+})
+
+test("fix CLI: --hide --dry-run --json", async () => {
+  const project = tmpdir()
+  fs.mkdirSync(path.join(project, ".git"))
+  skill(path.join(project, ".opencode", "skills"), "a", "description: a skill")
+  skill(path.join(project, ".opencode", "skills"), "b", "description: b skill")
+
+  const result = await runCli(["fix", "--root", project, "--no-global", "--json", "--dry-run", "--hide", "a,b,missing"])
+  const parsed = JSON.parse(result.output)
+  assert.equal(parsed.hidden.length, 2)
+  assert.deepEqual(parsed.missing, ["missing"])
+  assert.ok(parsed.dryRun)
+})
+
+test("audit: 结构化结果与 markdown 渲染", () => {
+  const project = tmpdir()
+  fs.mkdirSync(path.join(project, ".git"))
+  skill(path.join(project, ".opencode", "skills"), "alpha", "description: alpha skill")
+  skill(path.join(project, ".opencode", "skills"), "alpha2", "description: alpha skill duplicate-ish")
+
+  const audit = auditSkills({ cwd: project, includeGlobal: false, lang: "en" })
+  assert.equal(audit.lang, "en")
+  assert.equal(audit.summary.unique, 2)
+  assert.ok(audit.findings.length >= 1)
+
+  const md = formatMarkdown(audit)
+  assert.match(md, /^# skills-doctor/)
+  assert.match(md, /Findings:/)
+  assert.match(md, /alpha/)
 })

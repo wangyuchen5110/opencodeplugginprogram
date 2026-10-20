@@ -5,3 +5,5 @@ Thumbs.db
 coverage/
 dist/
 .skills-doctor-archive/
+.npm-cache/
+*.tgz

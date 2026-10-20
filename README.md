@@ -2,7 +2,7 @@
 
 [![test](https://github.com/wangyuchen5110/opencodeplugginprogram/actions/workflows/test.yml/badge.svg)](https://github.com/wangyuchen5110/opencodeplugginprogram/actions/workflows/test.yml)
 
-Local scanner, linter, fixer and updater for **OpenCode skills** — zero dependencies, Node ≥ 20.
+Local scanner, linter, fixer, updater and **OpenCode plugin** for skills — zero dependencies, Node ≥ 20.
 
 **English** | [简体中文](README.zh-CN.md)
 
@@ -55,6 +55,7 @@ Archives definitions that are shadowed — files that never load because another
 ```powershell
 skills-doctor fix --dry-run   # preview what would be archived
 skills-doctor fix
+skills-doctor fix --hide academic-paper,deep-research --dry-run   # hide low-frequency skills
 ```
 
 - Only shadowed duplicates are touched; the effective definition is never moved;
@@ -75,6 +76,40 @@ skills-doctor update --into .\team-skills
 - Writes `.skills-doctor.lock.json` (schema v2: a sha1 for every file);
 - `check` reads that lock: shows managed versions, detects hand edits (`managed-drift`) and missing files (`managed-missing`);
 - Running `update` again re-downloads drifted files (self-healing).
+
+## Configuration
+
+Optional `.skills-doctor.json` in the working directory (or pass `--config <file>`):
+
+```json
+{
+  "budget": 1200,
+  "staleDays": 180,
+  "lang": "en",
+  "rules": { "long-description": "off", "hidden-skill": "info" },
+  "ignore": ["legacy-skill"]
+}
+```
+
+`rules` accepts `off`, `info`, `warn` or `error`; `ignore` drops findings that only involve those IDs. CLI flags override the file.
+
+## OpenCode plugin
+
+The package also exports an OpenCode 2.x plugin:
+
+```jsonc
+// opencode.jsonc
+{
+  "plugins": ["opencode-skills-doctor"]
+}
+```
+
+It registers:
+
+- the `skills_doctor` tool (namespace `skills`) — the agent can audit with `{ directory?, budget? }` and gets a markdown report;
+- the `/skills-doctor` command — asks the agent to run the audit and summarize fixes.
+
+`@opencode/plugin` is an optional peer dependency; OpenCode provides it at runtime.
 
 ## Rules
 
@@ -128,9 +163,8 @@ skills-doctor update --into .\team-skills
 
 ## Roadmap
 
-- v0.3: OpenCode plugin form, exposing the report as a `skills_doctor` tool
-- v0.4: configurable rules (`.skills-doctor.json`); `fix` for content issues (trim descriptions, hide low-frequency skills)
-- Later: V1/Claude skill migration report; catalog signature verification
+- v0.4: content-aware suggestions (which skills are never used), catalog signature verification
+- Later: V1/Claude skill migration report
 
 ## Development
 

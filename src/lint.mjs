@@ -178,7 +178,27 @@ export function lint(skills, options = {}) {
     )
   }
 
-  return findings.sort((x, y) => SEVERITY_ORDER[x.severity] - SEVERITY_ORDER[y.severity])
+  return applyOverrides(findings, options)
+}
+
+const SEVERITIES = new Set(["error", "warn", "info"])
+
+function applyOverrides(findings, options) {
+  const overrides = options.ruleOverrides ?? {}
+  const ignore = new Set(options.ignore ?? [])
+
+  const result = []
+  for (const finding of findings) {
+    const override = overrides[finding.rule]
+    if (override === "off") continue
+    const severity = SEVERITIES.has(override) ? override : finding.severity
+    if (ignore.size && Array.isArray(finding.skills) && finding.skills.every((id) => ignore.has(id))) {
+      if (severity !== "error") continue
+    }
+    result.push(severity === finding.severity ? finding : { ...finding, severity })
+  }
+
+  return result.sort((x, y) => SEVERITY_ORDER[x.severity] - SEVERITY_ORDER[y.severity])
 }
 
 export function summarize(skills) {

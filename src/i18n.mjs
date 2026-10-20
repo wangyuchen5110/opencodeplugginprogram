@@ -3,7 +3,7 @@
 
 const dict = {
   en: {
-    help: `skills-doctor {version} — local scanner, linter and updater for OpenCode skills
+    help: `skills-doctor {version} — local scanner, linter, fixer, updater and plugin for OpenCode skills
 
 Usage:
   skills-doctor check  [options]   check sources, conflicts and context budget (default)
@@ -19,7 +19,9 @@ Options:
   --strict             exit non-zero on warnings too
   --json               print JSON
   --lang <en|zh>       output language (default: auto from system locale)
-  --dry-run            fix: only print what would be archived
+  --config <file>      config file (default: .skills-doctor.json)
+  --dry-run            fix: only print what would change
+  --hide <ids>         fix: hide skills with metadata.opencode/autoinvoke: false (comma separated)
   --into <dir>         update: output directory (default: .opencode/skills)
   --check-only         update: only report available updates
   -h, --help           show this help
@@ -30,6 +32,7 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
     "check.title": "skills-doctor {version}",
     "check.workdir": "  working dir: {dir}",
     "check.projectRoot": "  project root: {dir}",
+    "check.config": "  config: {file}",
     "check.sources":
       "  sources: {total} ({existing} exist)  definitions: {definitions}  unique IDs: {unique}  advertised: {advertised}  description budget: ~{tokens} tokens",
     "check.catalogs": "  HTTP catalogs: {count} (use update --check-only for versions)",
@@ -77,9 +80,12 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
     "fix.moved": "  ✓ archived {from} → {to}",
     "fix.skippedManaged": "  · skipped {path} (installed by the updater; run update instead)",
     "fix.none": "Nothing to fix.",
-    "fix.summary": "{moved} archived, {skipped} skipped",
+    "fix.summary": "{moved} archived, {hidden} hidden, {skipped} skipped",
     "fix.error": "  ✗ failed to archive {path}: {error}",
     "fix.rerun": "Run `skills-doctor check` again to confirm.",
+    "fix.hidden": "  ✓ hid {id} ({file})",
+    "fix.unknownHide": "  ! unknown skill id: {id}",
+    "config.error": "  ! cannot read config: {file} ({error})",
 
     "hint.shadowed":
       "Delete the shadowed definitions or give them distinct IDs; otherwise you may be editing a file that never loads.",
@@ -136,7 +142,7 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
   },
 
   zh: {
-    help: `skills-doctor {version} —— OpenCode skill 本地检测器 / 更新器 / 修复器
+    help: `skills-doctor {version} —— OpenCode skill 本地检测器 / 更新器 / 修复器 / 插件
 
 用法:
   skills-doctor check  [选项]   检查来源、冲突与上下文预算（默认命令）
@@ -152,7 +158,9 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
   --strict            有 warning 也返回非 0
   --json              输出 JSON
   --lang <en|zh>      输出语言（默认按系统 locale 自动选择）
-  --dry-run           fix: 只打印将要归档的文件，不实际移动
+  --config <file>     配置文件（默认 .skills-doctor.json）
+  --dry-run           fix: 只打印将要变更的内容，不实际修改
+  --hide <ids>        fix: 给指定 skill 加 metadata.opencode/autoinvoke: false（逗号分隔）
   --into <dir>        update 的落盘目录（默认 .opencode/skills）
   --check-only        update 只报告可用更新，不下载
   -h, --help          帮助
@@ -163,6 +171,7 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
     "check.title": "skills-doctor {version}",
     "check.workdir": "  工作目录: {dir}",
     "check.projectRoot": "  项目根:   {dir}",
+    "check.config": "  配置: {file}",
     "check.sources":
       "  来源: {total} 个（存在 {existing} 个）  定义: {definitions}  唯一 ID: {unique}  会展示: {advertised}  描述预算: ~{tokens} tokens",
     "check.catalogs": "  HTTP catalog: {count} 个（用 update --check-only 查版本）",
@@ -210,9 +219,12 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
     "fix.moved": "  ✓ 已归档 {from} → {to}",
     "fix.skippedManaged": "  · 跳过 {path}（由更新器管理，请用 update）",
     "fix.none": "没有需要修复的内容。",
-    "fix.summary": "归档 {moved} 个，跳过 {skipped} 个",
+    "fix.summary": "归档 {moved} 个，隐藏 {hidden} 个，跳过 {skipped} 个",
     "fix.error": "  ✗ 归档 {path} 失败: {error}",
     "fix.rerun": "再跑一次 `skills-doctor check` 确认。",
+    "fix.hidden": "  ✓ 已隐藏 {id}（{file}）",
+    "fix.unknownHide": "  ! 找不到 skill ID: {id}",
+    "config.error": "  ! 无法读取配置: {file}（{error}）",
 
     "hint.shadowed": "删掉被遮蔽的旧定义，或改用不同 ID；否则你改的和实际加载的可能不是同一份。",
     "hint.flat-dir-collision": "同一来源里两种形式二选一，避免 ID 语义不清。",

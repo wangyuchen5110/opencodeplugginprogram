@@ -90,3 +90,72 @@ export function applyFixes(plan, { dryRun = false } = {}) {
 
   return { moved, errors }
 }
+
+/** 在 frontmatter 里把 metadata.opencode/autoinvoke 设为 false。 */
+export function setAutoinvokeFalse(text) {
+  const lines = text.split(/\r?\n/)
+  const snippet = ["metadata:", "  opencode/autoinvoke: false"]
+  if (lines[0]?.trim() !== "---") return ["---", ...snippet, "---", ...lines].join("\n")
+
+  let end = -1
+  for (let i = 1; i < lines.length; i++) {
+    if (lines[i].trim() === "---") {
+      end = i
+      break
+    }
+  }
+  if (end === -1) return ["---", ...snippet, "---", ...lines].join("\n")
+
+  const fm = lines.slice(1, end)
+  const metaIdx = fm.findIndex((line) => /^metadata\s*:/.test(line.trim()))
+  if (metaIdx === -1) {
+    return [lines[0], ...fm, ...snippet, ...lines.slice(end)].join("\n")
+  }
+
+  const metaIndent = fm[metaIdx].length - fm[metaIdx].trimStart().length
+  let j = metaIdx + 1
+  while (j < fm.length && (fm[j].trim() === "" || fm[j].length - fm[j].trimStart().length > metaIndent)) j++
+
+  const block = fm.slice(metaIdx + 1, j)
+  let replaced = false
+  for (let k = 0; k < block.length; k++) {
+    if (/^\s*opencode\/autoinvoke\s*:/.test(block[k])) {
+      block[k] = " ".repeat(metaIndent + 2) + "opencode/autoinvoke: false"
+      replaced = true
+    }
+  }
+  if (!replaced) block.unshift(" ".repeat(metaIndent + 2) + "opencode/autoinvoke: false")
+
+  return [lines[0], ...fm.slice(0, metaIdx + 1), ...block, ...fm.slice(j), ...lines.slice(end)].join("\n")
+}
+
+/**
+ * 隐藏指定 ID 的 skill（给生效版本加 autoinvoke: false）。
+ * 用于给上下文预算减压：skill 仍可用 @id 手动加载。
+ */
+export function hideSkills(skills, ids, { dryRun = false } = {}) {
+  const winners = resolveWinners(skills)
+  const wanted = [...new Set(ids)]
+  const changed = []
+  const errors = []
+  const missing = []
+
+  for (const id of wanted) {
+    const skill = winners.get(id)
+    if (!skill) {
+      missing.push(id)
+      continue
+    }
+    try {
+      if (!dryRun) {
+        const text = fs.readFileSync(skill.file, "utf8")
+        fs.writeFileSync(skill.file, setAutoinvokeFalse(text), "utf8")
+      }
+      changed.push({ id, file: skill.file })
+    } catch (err) {
+      errors.push({ id, file: skill.file, error: String(err?.message ?? err) })
+    }
+  }
+
+  return { changed, errors, missing }
+}
