@@ -10,7 +10,7 @@ Local scanner, linter, fixer, updater and **OpenCode plugin** for skills — zer
 
 On every model step, OpenCode advertises every skill that has a `description` — the model sees `ID + name + description` for each of them. Skills are not free: they are a permanent context tax on every request.
 
-**What this costs.** 29 skills with long descriptions ≈ **3,000+ tokens every step**. Over a 100-step session that is ~300k tokens of pure overhead — spent before the model reads a single line of your code. Just imagine what if there are much more skills u download without awareness.Plus, some skills are Out-Of-Date now. This tool help u recognise your skill respository much well.
+**What this costs.** 29 skills with long descriptions ≈ **3,000+ tokens every step**. Over a 100-step session that is ~300k tokens of pure overhead — spent before the model reads a single line of your code. And that is only 29 skills: many users have far more they downloaded without noticing, some already out of date. This tool helps you understand your skill repository much better.
 
 **What can go wrong.** As skills pile up:
 - duplicate IDs silently shadow each other — you may be editing a file that never loads;
