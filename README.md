@@ -183,6 +183,24 @@ Any other MCP client: run `npx -y opencode-skills-doctor mcp` and allow the `ski
 
 It scans `.opencode/skills`, `.claude/skills` and `.agents/skills` (project and global), so it can audit skills used by other agents too.
 
+### DeepSeek Harness (DSH)
+
+DSH ships an MCP client bundle (`@deepseek-ai/dsh-mcp-client`). Add one entry to your profile patch, e.g. `~/.dsh/profiles/<profile>/cordis.patch.yml`:
+
+```yaml
+- id: mcp-skills-doctor
+  name: "@deepseek-ai/dsh-mcp-client"
+  config:
+    serverName: skills_doctor
+    transport: stdio
+    command: npx
+    args: ["-y", "opencode-skills-doctor", "mcp"]
+```
+
+Restart DSH. The tool shows up as `mcp__skills_doctor__skills_doctor`.
+
+On Windows, if the stdio spawn cannot resolve `npx`, use `command: cmd` and `args: ["/c", "npx", "-y", "opencode-skills-doctor", "mcp"]`.
+
 ## Rules
 
 | Rule | Level | Meaning |

@@ -183,6 +183,24 @@ args = ["-y", "opencode-skills-doctor", "mcp"]
 
 它扫描 `.opencode/skills`、`.claude/skills`、`.agents/skills`（项目和全局），所以其他 agent 用的 skill 也能一起体检。
 
+### DeepSeek Harness（DSH）
+
+DSH 自带 MCP 客户端 bundle（`@deepseek-ai/dsh-mcp-client`）。在 profile 的 patch 里加一条，例如 `~/.dsh/profiles/<profile>/cordis.patch.yml`：
+
+```yaml
+- id: mcp-skills-doctor
+  name: "@deepseek-ai/dsh-mcp-client"
+  config:
+    serverName: skills_doctor
+    transport: stdio
+    command: npx
+    args: ["-y", "opencode-skills-doctor", "mcp"]
+```
+
+重启 DSH。工具会以 `mcp__skills_doctor__skills_doctor` 出现。
+
+Windows 上如果 stdio 起不来 `npx`，改成 `command: cmd`、`args: ["/c", "npx", "-y", "opencode-skills-doctor", "mcp"]`。
+
 ## 检测规则
 
 | 规则 | 级别 | 含义 |
