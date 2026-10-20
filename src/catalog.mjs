@@ -1,6 +1,7 @@
 import fs from "node:fs"
 import path from "node:path"
 import { createHash } from "node:crypto"
+import { translator } from "./i18n.mjs"
 
 export const LOCK_NAME = ".skills-doctor.lock.json"
 export const LOCK_VERSION = 2
@@ -18,30 +19,32 @@ function safeRelPath(p) {
   return true
 }
 
-function resolveInside(baseDir, rel) {
+function resolveInside(baseDir, rel, t) {
   const base = path.resolve(baseDir)
   const target = path.resolve(base, rel)
   if (target !== base && !target.startsWith(base + path.sep)) {
-    throw new Error(`不安全路径: ${rel}`)
+    throw new Error(t("catalog.unsafePath", { rel }))
   }
   return target
 }
 
-export function validateCatalogEntry(entry) {
+export function validateCatalogEntry(entry, t = translator("en")) {
   const problems = []
-  if (!entry || typeof entry !== "object") return ["条目不是对象"]
-  if (typeof entry.name !== "string" || !entry.name.trim()) problems.push("缺少 name")
-  if (typeof entry.version !== "string" && typeof entry.version !== "number") problems.push("缺少 version")
+  if (!entry || typeof entry !== "object") return [t("catalog.entryNotObject")]
+  if (typeof entry.name !== "string" || !entry.name.trim()) problems.push(t("catalog.missingName"))
+  if (typeof entry.version !== "string" && typeof entry.version !== "number") {
+    problems.push(t("catalog.missingVersion"))
+  }
   if (!Array.isArray(entry.files) || entry.files.length === 0) {
-    problems.push("缺少 files")
+    problems.push(t("catalog.missingFiles"))
   } else {
     for (const file of entry.files) {
-      if (!safeRelPath(file)) problems.push(`不安全的文件路径: ${file}`)
+      if (!safeRelPath(file)) problems.push(t("catalog.safePath", { file }))
     }
     const hasEntryFile =
       entry.files.includes("SKILL.md") ||
       (typeof entry.name === "string" && entry.files.includes(`${entry.name}.md`))
-    if (!hasEntryFile) problems.push("files 里没有 SKILL.md 或 <name>.md")
+    if (!hasEntryFile) problems.push(t("catalog.missingEntryFile"))
   }
   return problems
 }
@@ -66,10 +69,10 @@ function lockEntryVersion(entry) {
 }
 
 /** 本地文件是否仍与 lock 里的哈希一致（无哈希时视为一致）。 */
-function filesMatch(into, name, files) {
+function filesMatch(into, name, files, t) {
   if (!files || typeof files !== "object") return true
   for (const [rel, expected] of Object.entries(files)) {
-    const target = resolveInside(path.join(into, name), rel)
+    const target = resolveInside(path.join(into, name), rel, t)
     if (!fs.existsSync(target)) return false
     if (sha1Buffer(fs.readFileSync(target)) !== expected) return false
   }
@@ -77,12 +80,12 @@ function filesMatch(into, name, files) {
 }
 
 /** 抓取 <url>/index.json。未知字段一律忽略（向上兼容）。 */
-export async function fetchCatalogIndex(url, { fetchImpl = fetch, timeoutMs = 15000 } = {}) {
+export async function fetchCatalogIndex(url, { fetchImpl = fetch, timeoutMs = 15000, t = translator("en") } = {}) {
   const base = url.replace(/\/+$/, "")
   const res = await fetchImpl(`${base}/index.json`, { signal: AbortSignal.timeout(timeoutMs) })
-  if (!res.ok) throw new Error(`index.json 返回 HTTP ${res.status}`)
+  if (!res.ok) throw new Error(t("catalog.indexHttp", { status: res.status }))
   const json = await res.json()
-  if (!json || !Array.isArray(json.skills)) throw new Error("index.json 缺少 skills 数组")
+  if (!json || !Array.isArray(json.skills)) throw new Error(t("catalog.indexShape"))
   return { base, skills: json.skills }
 }
 
@@ -90,7 +93,7 @@ export async function fetchCatalogIndex(url, { fetchImpl = fetch, timeoutMs = 15
  * 更新器：对比 HTTP catalog 的 version，必要时下载到 into 目录并写 lock。
  * lock 里记录每个文件的 sha1，检测器据此判断「更新后是否被改过」。
  */
-export async function updateCatalogs(catalogs, { into = process.cwd(), checkOnly = false, fetchImpl = fetch } = {}) {
+export async function updateCatalogs(catalogs, { into = process.cwd(), checkOnly = false, fetchImpl = fetch, t = translator("en") } = {}) {
   const lockPath = path.join(into, LOCK_NAME)
   const lock = readLockFile(into) ?? { version: LOCK_VERSION, catalogs: {} }
   const lockTooNew = Number(lock.version ?? 1) > LOCK_VERSION
@@ -99,13 +102,13 @@ export async function updateCatalogs(catalogs, { into = process.cwd(), checkOnly
   for (const catalog of catalogs) {
     const result = { url: catalog.url, error: null, updated: [], unchanged: [], invalid: [], files: 0 }
     try {
-      const { base, skills } = await fetchCatalogIndex(catalog.url, { fetchImpl })
+      const { base, skills } = await fetchCatalogIndex(catalog.url, { fetchImpl, t })
       const baseUrl = new URL(base + "/")
       const previousSkills = lock.catalogs[catalog.url]?.skills ?? {}
       const nextSkills = {}
 
       for (const entry of skills) {
-        const problems = validateCatalogEntry(entry)
+        const problems = validateCatalogEntry(entry, t)
         if (problems.length) {
           result.invalid.push({ name: String(entry?.name ?? "?"), problems })
           continue
@@ -114,7 +117,7 @@ export async function updateCatalogs(catalogs, { into = process.cwd(), checkOnly
         const previousVersion = lockEntryVersion(previousSkills[entry.name])
         const prevEntry = previousSkills[entry.name]
         const prevHashes = prevEntry && typeof prevEntry === "object" ? prevEntry.files : null
-        const drifted = previousVersion === version && prevHashes ? !filesMatch(into, entry.name, prevHashes) : false
+        const drifted = previousVersion === version && prevHashes ? !filesMatch(into, entry.name, prevHashes, t) : false
 
         if (previousVersion === version && !drifted) {
           result.unchanged.push(entry.name)
@@ -131,11 +134,11 @@ export async function updateCatalogs(catalogs, { into = process.cwd(), checkOnly
         for (const file of entry.files) {
           const encodedPath = file.split("/").map(encodeURIComponent).join("/")
           const fileUrl = new URL(`${encodeURIComponent(entry.name)}/${encodedPath}`, baseUrl)
-          if (fileUrl.origin !== baseUrl.origin) throw new Error(`跨域文件引用: ${file}`)
+          if (fileUrl.origin !== baseUrl.origin) throw new Error(t("catalog.crossOrigin", { file }))
           const res = await fetchImpl(fileUrl, { signal: AbortSignal.timeout(30000) })
-          if (!res.ok) throw new Error(`${entry.name}/${file} 返回 HTTP ${res.status}`)
+          if (!res.ok) throw new Error(t("catalog.fileHttp", { name: entry.name, file, status: res.status }))
           const buffer = Buffer.from(await res.arrayBuffer())
-          const target = resolveInside(path.join(into, entry.name), file)
+          const target = resolveInside(path.join(into, entry.name), file, t)
           fs.mkdirSync(path.dirname(target), { recursive: true })
           fs.writeFileSync(target, buffer)
           hashes[file] = sha1Buffer(buffer)

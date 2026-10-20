@@ -155,7 +155,7 @@ export function discoverSources({ cwd = process.cwd(), home = os.homedir(), incl
     try {
       config = readJsoncFile(file)
     } catch (err) {
-      missing.push({ kind: "config-error", path: file, entry: null, config: file, reason: `无法解析: ${err.message}` })
+      missing.push({ kind: "config-error", path: file, error: err.message })
       continue
     }
     const entries = Array.isArray(config?.skills) ? config.skills : []
@@ -169,7 +169,7 @@ export function discoverSources({ cwd = process.cwd(), home = os.homedir(), incl
       const expanded = expandHome(value, home)
       const abs = path.isAbsolute(expanded) ? expanded : path.resolve(cwd, expanded)
       if (fs.existsSync(abs)) addSource("config-path", "config", abs)
-      else missing.push({ kind: "missing-path", path: abs, entry: value, config: file, reason: "路径不存在" })
+      else missing.push({ kind: "missing-path", path: abs, entry: value, config: file })
     }
   }
 

@@ -4,53 +4,34 @@ import { discoverSources, scanAll } from "./discover.mjs"
 import { lint, resolveWinners, summarize, SEVERITY_ORDER } from "./lint.mjs"
 import { updateCatalogs, LOCK_NAME } from "./catalog.mjs"
 import { inspectManaged } from "./managed.mjs"
+import { planFixes, applyFixes } from "./fix.mjs"
 import { padDisplay } from "./parse.mjs"
+import { detectLang, normalizeLang, translator } from "./i18n.mjs"
 
 const pkg = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8"))
-
-const HELP = `skills-doctor ${pkg.version} — OpenCode skill 本地检测器 / 更新器
-
-用法:
-  skills-doctor check  [options]   检查 skill 来源、冲突与上下文预算（默认命令）
-  skills-doctor scan   [options]   列出所有 skill 及其来源/优先级
-  skills-doctor update [options]   对比并拉取 HTTP catalog 里的 skill（更新器）
-
-选项:
-  --root <dir>        以该目录为工作目录（默认当前目录）
-  --no-global         不扫描 ~/.claude、~/.agents、~/.config/opencode
-  --budget <n>        模型每步可看的 description token 预算（默认 1200）
-  --stale-days <n>    超过 n 天未更新的 skill 给出提示（默认关闭）
-  --strict            有 warning 也返回非 0
-  --json              输出 JSON
-  --into <dir>        update 的落盘目录（默认 .opencode/skills，opencode 会直接读取）
-  --check-only        update 只报告可用更新，不下载
-  -h, --help          帮助
-  -v, --version       版本
-
-退出码: 0 正常；1 有 error（--strict 时含 warning）；2 参数/运行错误
-`
 
 const color = process.stdout.isTTY && !process.env.NO_COLOR
 const paint = (code, text) => (color ? `\x1b[${code}m${text}\x1b[0m` : text)
 const red = (t) => paint("31", t)
 const yellow = (t) => paint("33", t)
+const green = (t) => paint("32", t)
 const cyan = (t) => paint("36", t)
 const dim = (t) => paint("2", t)
 const bold = (t) => paint("1", t)
 
-const HINTS = {
-  shadowed: "删掉被遮蔽的旧定义，或改用不同 ID；否则你改的和实际加载的可能不是同一份。",
-  "flat-dir-collision": "同一来源里两种形式二选一，避免 ID 语义不清。",
-  "duplicate-content": "合并成一份，另一处改为引用。",
-  "near-duplicate-description": "把 description 写得更具体，或直接合并成一个 skill。",
-  "missing-description": "补 description——模型只能看到 ID、name、description。",
-  "long-description": "description 压到一两句话，细节放正文或 references/。",
-  "large-body": "正文拆到 references/，SKILL.md 只保留流程。",
-  "token-budget": "精简 description，或把低频 skill 设为 metadata.opencode/autoinvoke: false 隐藏。",
-  "too-many-skills": "低频 skill 关掉 autoinvoke，用 @id 手动加载。",
-  "invalid-id": "改成小写 kebab-case，并与目录名对齐。",
-  "hidden-skill": "确认是刻意隐藏；隐藏的 skill 不会出现在模型列表里。",
-  "stale-skill": "确认内容没过期，或删掉。",
+const HINT_KEYS = {
+  shadowed: "hint.shadowed",
+  "flat-dir-collision": "hint.flat-dir-collision",
+  "duplicate-content": "hint.duplicate-content",
+  "near-duplicate-description": "hint.near-duplicate-description",
+  "missing-description": "hint.missing-description",
+  "long-description": "hint.long-description",
+  "large-body": "hint.large-body",
+  "token-budget": "hint.token-budget",
+  "too-many-skills": "hint.too-many-skills",
+  "invalid-id": "hint.invalid-id",
+  "hidden-skill": "hint.hidden-skill",
+  "stale-skill": "hint.stale-skill",
 }
 
 function parseArgs(argv) {
@@ -62,6 +43,8 @@ function parseArgs(argv) {
     staleDays: 0,
     strict: false,
     json: false,
+    lang: null,
+    dryRun: false,
     into: null,
     checkOnly: false,
     help: false,
@@ -69,7 +52,7 @@ function parseArgs(argv) {
   }
 
   const args = [...argv]
-  const commands = new Set(["check", "scan", "update", "help"])
+  const commands = new Set(["check", "scan", "update", "fix", "help"])
   if (args[0] && commands.has(args[0])) {
     options.command = args.shift()
   }
@@ -95,6 +78,12 @@ function parseArgs(argv) {
       case "--json":
         options.json = true
         break
+      case "--lang":
+        options.lang = args[++i] ?? null
+        break
+      case "--dry-run":
+        options.dryRun = true
+        break
       case "--into":
         options.into = path.resolve(args[++i] ?? ".")
         break
@@ -111,7 +100,7 @@ function parseArgs(argv) {
         break
       default:
         if (arg.startsWith("-")) {
-          console.error(`未知参数: ${arg}`)
+          console.error(`unknown option: ${arg}`)
           process.exit(2)
         }
     }
@@ -141,10 +130,11 @@ function serializeSkills(skills, managed = new Map()) {
   }))
 }
 
-function runCheck(discovered, options, managedInfo) {
-  const findings = [...lint(discovered.skills, { budget: options.budget, staleDays: options.staleDays }), ...managedInfo.findings].sort(
-    (a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity],
-  )
+function runCheck(discovered, options, managedInfo, t) {
+  const findings = [
+    ...lint(discovered.skills, { budget: options.budget, staleDays: options.staleDays, t }),
+    ...managedInfo.findings,
+  ].sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity])
   const summary = summarize(discovered.skills)
   const errors = findings.filter((f) => f.severity === "error").length
   const warnings = findings.filter((f) => f.severity === "warn").length
@@ -156,7 +146,13 @@ function runCheck(discovered, options, managedInfo) {
     version: pkg.version,
     cwd: path.resolve(options.root),
     projectRoot: discovered.projectRoot,
-    sources: discovered.sources.map((s) => ({ kind: s.kind, scope: s.scope, dir: s.dir, order: s.order, exists: fs.existsSync(s.dir) })),
+    sources: discovered.sources.map((s) => ({
+      kind: s.kind,
+      scope: s.scope,
+      dir: s.dir,
+      order: s.order,
+      exists: fs.existsSync(s.dir),
+    })),
     catalogs: discovered.catalogs,
     missing: discovered.missing,
     summary,
@@ -167,33 +163,38 @@ function runCheck(discovered, options, managedInfo) {
   }
 }
 
-function printCheck(result, options) {
+function printCheck(result, options, t) {
   const { summary, counts } = result
-  console.log(bold(`skills-doctor ${result.version}`))
-  console.log(dim(`  工作目录: ${result.cwd}`))
-  console.log(dim(`  项目根:   ${result.projectRoot}`))
+  console.log(bold(t("check.title", { version: result.version })))
+  console.log(dim(t("check.workdir", { dir: result.cwd })))
+  console.log(dim(t("check.projectRoot", { dir: result.projectRoot })))
   console.log(
-    `  来源: ${result.sources.length} 个（存在 ${result.sources.filter((s) => s.exists).length} 个）` +
-      `  定义: ${summary.total}  唯一 ID: ${summary.unique}  会展示: ${summary.advertised}` +
-      `  描述预算: ~${summary.advertisedTokens} tokens`,
+    t("check.sources", {
+      total: result.sources.length,
+      existing: result.sources.filter((s) => s.exists).length,
+      definitions: summary.total,
+      unique: summary.unique,
+      advertised: summary.advertised,
+      tokens: summary.advertisedTokens,
+    }),
   )
   if (result.catalogs.length) {
-    console.log(dim(`  HTTP catalog: ${result.catalogs.length} 个（用 update --check-only 查版本）`))
+    console.log(dim(t("check.catalogs", { count: result.catalogs.length })))
   }
   if (result.managed.count > 0) {
-    console.log(dim(`  由更新器管理: ${result.managed.count} 个（lock 版本校验，见 managed-* 提示）`))
+    console.log(dim(t("check.managed", { count: result.managed.count })))
   }
   for (const missing of result.missing) {
     if (missing.kind === "config-error") {
-      console.log(yellow(`  ! 配置文件无法解析: ${missing.path}（${missing.reason}）`))
+      console.log(yellow(t("check.configError", { path: missing.path, error: missing.error })))
     } else {
-      console.log(yellow(`  ! 配置里引用的路径不存在: ${missing.path}`))
+      console.log(yellow(t("check.missingPath", { path: missing.path })))
     }
   }
   console.log("")
 
   if (!result.findings.length) {
-    console.log(bold("没有发现问题。"))
+    console.log(bold(t("check.none")))
   } else {
     const badge = { error: red("[E]"), warn: yellow("[W]"), info: cyan("[i]") }
     for (const finding of result.findings) {
@@ -201,20 +202,20 @@ function printCheck(result, options) {
     }
     console.log("")
     console.log(
-      `${counts.errors} error, ${counts.warnings} warn, ${counts.infos} info` +
-        (options.strict ? "（--strict：warning 也会非 0 退出）" : ""),
+      t("check.summary", { errors: counts.errors, warnings: counts.warnings, infos: counts.infos }) +
+        (options.strict ? t("check.strict") : ""),
     )
   }
 
-  const usedRules = [...new Set(result.findings.map((f) => f.rule))].filter((r) => HINTS[r])
+  const usedRules = [...new Set(result.findings.map((f) => f.rule))].filter((r) => HINT_KEYS[r])
   if (usedRules.length) {
     console.log("")
-    console.log(bold("建议:"))
-    for (const rule of usedRules) console.log(dim(`  - ${HINTS[rule]}`))
+    console.log(bold(t("check.hints")))
+    for (const rule of usedRules) console.log(dim(`  - ${t(HINT_KEYS[rule])}`))
   }
 }
 
-function printScan(discovered, options, managed = new Map()) {
+function printScan(discovered, options, managed, t) {
   const winners = resolveWinners(discovered.skills)
   const rows = discovered.skills
     .slice()
@@ -224,7 +225,6 @@ function printScan(discovered, options, managed = new Map()) {
       return {
         id: s.id + (winners.get(s.id) === s ? " *" : "") + (info ? ` @${info.version}` : ""),
         scope: s.source.scope,
-        kind: s.source.kind,
         adv: s.advertised ? "yes" : "no",
         tokens: String(s.descriptionTokens),
         body: String(s.bodyTokens),
@@ -232,9 +232,9 @@ function printScan(discovered, options, managed = new Map()) {
       }
     })
 
-  console.log(bold(`skills-doctor ${pkg.version} — scan`))
-  console.log(dim(`  工作目录: ${path.resolve(options.root)}`))
-  console.log(dim(`  项目根:   ${discovered.projectRoot}`))
+  console.log(bold(t("scan.title", { version: pkg.version })))
+  console.log(dim(t("scan.workdir", { dir: path.resolve(options.root) })))
+  console.log(dim(t("scan.projectRoot", { dir: discovered.projectRoot })))
   console.log("")
 
   const widths = {
@@ -246,12 +246,12 @@ function printScan(discovered, options, managed = new Map()) {
   }
   console.log(
     dim(
-      padDisplay("ID", widths.id) +
-        padDisplay("scope", widths.scope) +
-        padDisplay("adv", widths.adv) +
-        padDisplay("desc", widths.tokens) +
-        padDisplay("body", widths.body) +
-        "file",
+      padDisplay(t("scan.col.id"), widths.id) +
+        padDisplay(t("scan.col.scope"), widths.scope) +
+        padDisplay(t("scan.col.adv"), widths.adv) +
+        padDisplay(t("scan.col.desc"), widths.tokens) +
+        padDisplay(t("scan.col.body"), widths.body) +
+        t("scan.col.file"),
     ),
   )
   for (const row of rows) {
@@ -265,23 +265,24 @@ function printScan(discovered, options, managed = new Map()) {
     )
   }
   console.log("")
-  console.log(dim("  * = 该 ID 的实际生效定义（注册顺序越后优先级越高）"))
+  console.log(dim(t("scan.winner")))
   if (discovered.catalogs.length) {
-    console.log(dim(`  HTTP catalog: ${discovered.catalogs.map((c) => c.url).join(", ")}`))
+    console.log(dim(t("scan.catalogs", { urls: discovered.catalogs.map((c) => c.url).join(", ") })))
   }
 }
 
-async function runUpdate(discovered, options, cwd) {
+async function runUpdate(discovered, options, cwd, t) {
   const into = options.into ? path.resolve(options.into) : path.join(cwd, ".opencode", "skills")
   if (!discovered.catalogs.length) {
-    console.log(bold("更新器"))
-    console.log("  没有配置 HTTP catalog。在 opencode.json(c) 的 skills 数组里写 https://... 即可。")
+    console.log(bold(t("update.title")))
+    console.log(`  ${t("update.noCatalogs")}`)
     return 0
   }
 
   const { lockPath, results, lockTooNew } = await updateCatalogs(discovered.catalogs, {
     into,
     checkOnly: options.checkOnly,
+    t,
   })
 
   if (options.json) {
@@ -289,48 +290,95 @@ async function runUpdate(discovered, options, cwd) {
     return results.some((r) => r.error) ? 1 : 0
   }
 
-  console.log(bold(`更新器${options.checkOnly ? "（仅检查）" : ""}`))
-  console.log(dim(`  落盘目录: ${into}`))
+  console.log(bold(t(options.checkOnly ? "update.titleCheckOnly" : "update.title")))
+  console.log(dim(t("update.into", { dir: into })))
   console.log("")
   for (const result of results) {
     console.log(cyan(result.url))
     if (result.error) {
-      console.log(red(`  ✗ 失败: ${result.error}`))
+      console.log(red(t("update.failed", { error: result.error })))
       continue
     }
     if (result.updated.length) {
-      const label = options.checkOnly ? "可更新" : "已更新"
-      const parts = result.updated.map((u) => {
-        if (u.reason === "drift") return `${u.name} ${u.version}（修复 drift）`
-        return u.previous ? `${u.name} ${u.previous}→${u.version}` : `${u.name} ${u.version}`
-      })
-      console.log(`  ✓ ${label} ${result.updated.length}: ${parts.join(", ")}`)
+      const label = t(options.checkOnly ? "update.labelAvailable" : "update.labelUpdated")
+      const items = result.updated
+        .map((u) => {
+          if (u.reason === "drift") return t("update.driftRepair", { name: u.name, version: u.version })
+          if (u.previous) return t("update.versionBump", { name: u.name, previous: u.previous, version: u.version })
+          return t("update.versioned", { name: u.name, version: u.version })
+        })
+        .join(", ")
+      console.log(green(t("update.updated", { label, count: result.updated.length, items })))
     }
-    if (result.unchanged.length) console.log(dim(`  · 未变 ${result.unchanged.length}`))
-    if (result.files) console.log(dim(`  · 写入文件 ${result.files}`))
+    if (result.unchanged.length) console.log(dim(t("update.unchanged", { count: result.unchanged.length })))
+    if (result.files) console.log(dim(t("update.files", { count: result.files })))
     for (const invalid of result.invalid) {
-      console.log(yellow(`  ! 跳过 ${invalid.name}: ${invalid.problems.join("; ")}`))
+      console.log(yellow(t("update.skipped", { name: invalid.name, problems: invalid.problems.join("; ") })))
     }
     if (!result.updated.length && !result.unchanged.length && !result.invalid.length) {
-      console.log(dim("  · catalog 为空"))
+      console.log(dim(t("update.empty")))
     }
   }
   console.log("")
-  console.log(dim(`  lock: ${lockPath}（${LOCK_NAME}）`))
-  if (lockTooNew) {
-    console.log(yellow("  ! lock 版本比本工具新，已按兼容模式解析（未知字段忽略）"))
-  }
+  console.log(dim(t("update.lock", { path: lockPath, name: LOCK_NAME })))
+  if (lockTooNew) console.log(yellow(t("update.lockTooNew")))
   if (!options.checkOnly && results.some((r) => !r.error)) {
-    console.log(dim(`  check 现在可以直接检测到这些 skill（${into} 是 opencode 会读取的目录）`))
+    console.log(dim(t("update.detector", { dir: into })))
   }
   return results.some((r) => r.error) ? 1 : 0
+}
+
+function runFix(discovered, options, managedInfo, t) {
+  const { plan, skipped } = planFixes(discovered.skills, managedInfo.managed)
+  const { moved, errors } = applyFixes(plan, { dryRun: options.dryRun })
+
+  if (options.json) {
+    console.log(
+      JSON.stringify(
+        {
+          tool: "skills-doctor",
+          version: pkg.version,
+          dryRun: options.dryRun,
+          archived: moved.map((m) => ({ id: m.id, from: m.from, to: m.target })),
+          skipped: skipped.map((s) => ({ id: s.id, file: s.file })),
+          errors: errors.map((e) => ({ id: e.id, from: e.from, error: e.error })),
+        },
+        null,
+        2,
+      ),
+    )
+    return errors.length ? 1 : 0
+  }
+
+  if (!plan.length && !skipped.length) {
+    console.log(bold(t("fix.title")))
+    console.log(`  ${t("fix.none")}`)
+    return 0
+  }
+
+  console.log(bold(t("fix.title")))
+  if (options.dryRun) console.log(dim(t("fix.dryRun")))
+  for (const item of moved) console.log(green(t("fix.moved", { from: item.from, to: item.target })))
+  for (const item of skipped) console.log(dim(t("fix.skippedManaged", { path: item.file })))
+  for (const item of errors) console.log(red(t("fix.error", { path: item.from, error: item.error })))
+  console.log("")
+  console.log(t("fix.summary", { moved: moved.length, skipped: skipped.length }))
+  console.log(dim(t("fix.rerun")))
+  return errors.length ? 1 : 0
 }
 
 export async function main(argv) {
   const options = parseArgs(argv)
 
+  if (options.lang && !normalizeLang(options.lang)) {
+    console.error(`unsupported --lang: ${options.lang} (expected en or zh)`)
+    process.exit(2)
+  }
+  const lang = normalizeLang(options.lang) ?? detectLang()
+  const t = translator(lang)
+
   if (options.help || options.command === "help") {
-    console.log(HELP)
+    console.log(t("help", { version: pkg.version }))
     return
   }
   if (options.version) {
@@ -340,33 +388,44 @@ export async function main(argv) {
 
   const cwd = path.resolve(options.root)
   const discovered = scanAll(discoverSources({ cwd, includeGlobal: options.global }))
-  const managedInfo = inspectManaged(discovered.scans)
+  const managedInfo = inspectManaged(discovered.scans, { t })
 
   if (options.command === "scan") {
     if (options.json) {
       console.log(
         JSON.stringify(
-          { tool: "skills-doctor", version: pkg.version, cwd, skills: serializeSkills(discovered.skills, managedInfo.managed) },
+          {
+            tool: "skills-doctor",
+            version: pkg.version,
+            lang,
+            cwd,
+            skills: serializeSkills(discovered.skills, managedInfo.managed),
+          },
           null,
           2,
         ),
       )
       return
     }
-    printScan(discovered, options, managedInfo.managed)
+    printScan(discovered, options, managedInfo.managed, t)
     return
   }
 
   if (options.command === "update") {
-    process.exitCode = await runUpdate(discovered, options, cwd)
+    process.exitCode = await runUpdate(discovered, options, cwd, t)
     return
   }
 
-  const result = runCheck(discovered, options, managedInfo)
+  if (options.command === "fix") {
+    process.exitCode = runFix(discovered, options, managedInfo, t)
+    return
+  }
+
+  const result = runCheck(discovered, options, managedInfo, t)
   if (options.json) {
-    console.log(JSON.stringify({ ...result, skills: serializeSkills(discovered.skills, managedInfo.managed) }, null, 2))
+    console.log(JSON.stringify({ ...result, lang, skills: serializeSkills(discovered.skills, managedInfo.managed) }, null, 2))
   } else {
-    printCheck(result, options)
+    printCheck(result, options, t)
   }
   process.exitCode = result.exitCode
 }

@@ -1,5 +1,7 @@
 # skills-doctor
 
+[![test](https://github.com/wangyuchen5110/opencodeplugginprogram/actions/workflows/test.yml/badge.svg)](https://github.com/wangyuchen5110/opencodeplugginprogram/actions/workflows/test.yml)
+
 OpenCode skill 的**本地检测器 + 更新器** —— 零依赖，Node ≥ 20。
 
 [English](README.md) | **简体中文**
@@ -23,6 +25,8 @@ skills-doctor check
 
 ## 命令
 
+所有命令都支持 `--lang en|zh`（默认按系统 locale 自动选择）和 `--json`。
+
 ### `check`（默认）
 
 扫描所有 skill 来源，输出问题清单、上下文预算和修复建议。
@@ -43,6 +47,19 @@ skills-doctor scan
 ```
 
 `*` 表示该 ID 的实际生效定义（注册顺序越后优先级越高）。
+
+### `fix`
+
+归档被遮蔽的定义——那些因为同 ID 已被更高优先级来源覆盖、永远不会加载的文件。操作可逆：文件会被移动到同一来源下的 `.skills-doctor-archive/<时间戳>/`，opencode 不会读取点目录。
+
+```powershell
+skills-doctor fix --dry-run   # 预览会归档哪些
+skills-doctor fix
+```
+
+- 只动被遮蔽的重复定义，生效版本永远不会被移动；
+- 由 `update` 安装的文件会跳过——用 `update` 恢复；
+- 修完再跑 `check`，`shadowed` 应该消失。
 
 ### `update`（更新器）
 
@@ -111,8 +128,8 @@ skills-doctor update --into .\team-skills
 
 ## Roadmap
 
-- v0.2：`--fix` 安全修复；规则可配置（`.skills-doctor.json`）
 - v0.3：opencode 插件形态，把检测结果作为 `skills_doctor` 工具暴露给 agent
+- v0.4：规则可配置（`.skills-doctor.json`）；`fix` 扩展到内容层面的问题（截断超长 description、隐藏低频 skill）
 - 后续：V1/Claude skill 兼容迁移报告；catalog 签名校验
 
 ## 开发

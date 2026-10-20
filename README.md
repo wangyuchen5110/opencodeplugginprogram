@@ -1,6 +1,8 @@
 # skills-doctor
 
-Local scanner, linter and updater for **OpenCode skills** — zero dependencies, Node ≥ 20.
+[![test](https://github.com/wangyuchen5110/opencodeplugginprogram/actions/workflows/test.yml/badge.svg)](https://github.com/wangyuchen5110/opencodeplugginprogram/actions/workflows/test.yml)
+
+Local scanner, linter, fixer and updater for **OpenCode skills** — zero dependencies, Node ≥ 20.
 
 **English** | [简体中文](README.zh-CN.md)
 
@@ -23,6 +25,8 @@ skills-doctor check
 
 ## Commands
 
+All commands accept `--lang en|zh` (default: auto from the system locale) and `--json`.
+
 ### `check` (default)
 
 Scans every skill source, reports problems, the context budget and fix hints.
@@ -43,6 +47,19 @@ skills-doctor scan
 ```
 
 `*` marks the definition that actually wins (later registration = higher precedence).
+
+### `fix`
+
+Archives definitions that are shadowed — files that never load because another source defines the same ID. The move is reversible: files go into `.skills-doctor-archive/<timestamp>/` inside the same source, which OpenCode ignores (dot-directory).
+
+```powershell
+skills-doctor fix --dry-run   # preview what would be archived
+skills-doctor fix
+```
+
+- Only shadowed duplicates are touched; the effective definition is never moved;
+- Files installed by `update` are skipped — use `update` to bring them back;
+- After fixing, `check` should report no `shadowed` findings.
 
 ### `update` (updater)
 
@@ -111,8 +128,8 @@ skills-doctor update --into .\team-skills
 
 ## Roadmap
 
-- v0.2: safe `--fix`; configurable rules (`.skills-doctor.json`)
 - v0.3: OpenCode plugin form, exposing the report as a `skills_doctor` tool
+- v0.4: configurable rules (`.skills-doctor.json`); `fix` for content issues (trim descriptions, hide low-frequency skills)
 - Later: V1/Claude skill migration report; catalog signature verification
 
 ## Development

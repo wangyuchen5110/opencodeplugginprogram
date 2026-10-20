@@ -1,7 +1,7 @@
 {
   "name": "opencode-skills-doctor",
-  "version": "0.1.0",
-  "description": "Local scanner, linter and updater for OpenCode skills (SKILL.md / flat markdown)",
+  "version": "0.2.0",
+  "description": "Local scanner, linter, fixer and updater for OpenCode skills (SKILL.md / flat markdown)",
   "type": "module",
   "bin": {
     "skills-doctor": "./bin/skills-doctor.mjs"

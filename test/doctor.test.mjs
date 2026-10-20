@@ -10,6 +10,8 @@ import { parseFrontmatter, estimateTokens, displayWidth } from "../src/parse.mjs
 import { discoverSources, scanAll, stripJsonc, findProjectRoot, pathChain } from "../src/discover.mjs"
 import { lint, resolveWinners, summarize } from "../src/lint.mjs"
 import { updateCatalogs, validateCatalogEntry } from "../src/catalog.mjs"
+import { planFixes, applyFixes } from "../src/fix.mjs"
+import { normalizeLang, translator } from "../src/i18n.mjs"
 import { main } from "../src/cli.mjs"
 
 const here = path.dirname(fileURLToPath(import.meta.url))
@@ -406,4 +408,98 @@ test("向上兼容：旧版 lock（字符串版本、无哈希）不报 drift", 
   const parsed = JSON.parse(result.output)
   assert.equal(parsed.skills[0].managed.version, "2")
   assert.ok(!parsed.findings.some((f) => f.rule === "managed-drift"))
+})
+
+test("fix: 归档被遮蔽的定义，保留生效版本", () => {
+  const home = tmpdir()
+  const project = tmpdir()
+  fs.mkdirSync(path.join(project, ".git"))
+  skill(path.join(home, ".config", "opencode", "skills"), "dup", "description: global dup")
+  skill(path.join(project, ".opencode", "skills"), "dup", "description: project dup")
+
+  const found = scanAll(discoverSources({ cwd: project, home }))
+  const { plan, skipped } = planFixes(found.skills)
+  assert.equal(plan.length, 1)
+  assert.equal(skipped.length, 0)
+
+  const { moved, errors } = applyFixes(plan)
+  assert.equal(errors.length, 0)
+  assert.equal(moved.length, 1)
+  assert.ok(fs.existsSync(moved[0].target))
+
+  const after = scanAll(discoverSources({ cwd: project, home }))
+  assert.equal(after.skills.length, 1)
+  assert.equal(after.skills[0].description, "project dup")
+  assert.ok(!lint(after.skills).some((f) => f.rule === "shadowed"))
+})
+
+test("fix: dry-run 不移动文件；由更新器管理的定义会跳过", () => {
+  const home = tmpdir()
+  const project = tmpdir()
+  fs.mkdirSync(path.join(project, ".git"))
+  skill(path.join(home, ".config", "opencode", "skills"), "dup", "description: global dup")
+  skill(path.join(project, ".opencode", "skills"), "dup", "description: project dup")
+
+  const found = scanAll(discoverSources({ cwd: project, home }))
+  const loser = found.skills.find((s) => s.description === "global dup")
+
+  const dry = applyFixes(planFixes(found.skills).plan, { dryRun: true })
+  assert.equal(dry.moved.length, 1)
+  assert.ok(!fs.existsSync(dry.moved[0].target))
+  assert.ok(fs.existsSync(loser.file))
+
+  const managed = new Map([[loser.file, { version: "1", url: "https://example.com", root: loser.source.dir }]])
+  const managedPlan = planFixes(found.skills, managed)
+  assert.equal(managedPlan.plan.length, 0)
+  assert.equal(managedPlan.skipped.length, 1)
+})
+
+test("fix CLI: --dry-run --json 列出将归档的文件", async () => {
+  const home = tmpdir()
+  const project = tmpdir()
+  fs.mkdirSync(path.join(project, ".git"))
+  skill(path.join(project, ".opencode", "skills"), "dup", "description: project dup")
+  skill(path.join(project, "extra"), "dup", "description: extra dup")
+  write(path.join(project, "opencode.jsonc"), `{ "skills": ["./extra"] }`)
+
+  const result = await runCli(["fix", "--root", project, "--json", "--dry-run"])
+  assert.equal(result.exitCode, 0)
+  const parsed = JSON.parse(result.output)
+  assert.equal(parsed.archived.length, 1)
+  assert.ok(parsed.archived[0].to.includes(".skills-doctor-archive"))
+  assert.ok(fs.existsSync(parsed.archived[0].from), "dry-run 不应移动文件")
+})
+
+test("i18n: 语言识别与中英文案", () => {
+  assert.equal(normalizeLang("zh"), "zh")
+  assert.equal(normalizeLang("zh-CN"), "zh")
+  assert.equal(normalizeLang("en-US"), "en")
+  assert.equal(normalizeLang("fr"), null)
+
+  const en = translator("en")
+  const zh = translator("zh")
+  assert.match(en("check.none"), /No problems/)
+  assert.match(zh("check.none"), /没有发现问题/)
+  assert.equal(zh("help", { version: "9.9.9" }).includes("9.9.9"), true)
+  // 缺失 key 回退英文
+  assert.equal(zh("no.such.key"), "no.such.key")
+})
+
+test("i18n CLI: --lang zh 输出中文 finding 文案", async () => {
+  const project = tmpdir()
+  fs.mkdirSync(path.join(project, ".git"))
+  skill(path.join(project, ".opencode", "skills"), "dup", "description: project dup")
+  skill(path.join(project, "extra"), "dup", "description: extra dup")
+  write(path.join(project, "opencode.jsonc"), `{ "skills": ["./extra"] }`)
+
+  const zhRun = await runCli(["check", "--root", project, "--json", "--lang", "zh"])
+  const zhParsed = JSON.parse(zhRun.output)
+  assert.equal(zhParsed.lang, "zh")
+  const shadowed = zhParsed.findings.find((f) => f.rule === "shadowed")
+  assert.match(shadowed.message, /被遮蔽/)
+
+  const enRun = await runCli(["check", "--root", project, "--json", "--lang", "en"])
+  const enParsed = JSON.parse(enRun.output)
+  const enShadowed = enParsed.findings.find((f) => f.rule === "shadowed")
+  assert.match(enShadowed.message, /shadowed/)
 })
