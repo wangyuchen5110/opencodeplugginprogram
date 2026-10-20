@@ -1,10 +1,27 @@
 # skills-doctor
 
+[![npm](https://img.shields.io/npm/v/opencode-skills-doctor)](https://www.npmjs.com/package/opencode-skills-doctor)
+[![downloads](https://img.shields.io/npm/dw/opencode-skills-doctor)](https://www.npmjs.com/package/opencode-skills-doctor)
+[![node](https://img.shields.io/node/v/opencode-skills-doctor)](https://www.npmjs.com/package/opencode-skills-doctor)
+[![license](https://img.shields.io/npm/l/opencode-skills-doctor)](LICENSE)
 [![test](https://github.com/wangyuchen5110/opencodeplugginprogram/actions/workflows/test.yml/badge.svg)](https://github.com/wangyuchen5110/opencodeplugginprogram/actions/workflows/test.yml)
 
-Local scanner, linter, fixer, updater and **OpenCode plugin** for skills — zero dependencies, Node ≥ 20.
+Local scanner, linter, fixer, updater and **OpenCode plugin** for agent skills — zero dependencies, Node ≥ 20.
 
-**English** | [简体中文](docs/README.zh-CN.md)
+**English** | [简体中文](docs/README.zh-CN.md) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md)
+
+## At a glance
+
+| | |
+|---|---|
+| **What it is** | Audit, fix and update the skills your coding agent loads |
+| **Interfaces** | CLI · OpenCode plugin (1.x / 2.x) · MCP server (Claude Code, Codex, DSH, …) |
+| **Skill sources** | `.opencode/skills`, `.claude/skills`, `.agents/skills`, `opencode.json(c)` entries, HTTP catalogs |
+| **What it finds** | shadowed IDs, duplicates, long descriptions, oversized bodies, per-step token budget, stale skills |
+| **What it fixes** | archives shadowed definitions (reversible), hides low-frequency skills, syncs catalogs with drift detection |
+| **Cost** | CLI: 0 tokens. Plugin: ~191 tokens/step for the tool definition, plus a one-time warning per session |
+| **Requirements** | Node ≥ 20, zero runtime dependencies |
+| **Quality** | 41 tests, CI on ubuntu/macos/windows × Node 20/22/24 |
 
 ## Why
 
@@ -36,6 +53,24 @@ node bin/skills-doctor.mjs check
 # Or install it locally
 npm link
 skills-doctor check
+```
+
+What a run looks like:
+
+```text
+skills-doctor 0.3.11
+  sources: 5 (2 exist)  definitions: 29  unique IDs: 29  advertised: 29  description budget: ~3074 tokens
+
+[E] token-budget   Advertised skill descriptions cost about 3074 tokens per model step, over 2x the 1200 budget
+[W] long-description  "deep-research" description is 917 chars; it is paid on every model step
+[W] large-body     "academic-paper" body is about 9980 tokens; invoking it pastes the whole body into context
+...
+
+1 error, 18 warn, 0 info
+
+Hints:
+  - Trim descriptions, or hide low-frequency skills with metadata.opencode/autoinvoke: false.
+  - Move details into references/ and keep SKILL.md to the workflow.
 ```
 
 ## Commands
@@ -94,6 +129,19 @@ skills-doctor update --into .\team-skills
 - `check` reads that lock: shows managed versions, detects hand edits (`managed-drift`) and missing files (`managed-missing`);
 - Running `update` again re-downloads drifted files (self-healing);
 - Use `--prune` to delete skills that disappeared from the catalog (by default they are reported but kept).
+
+## Does the plugin cost tokens?
+
+Local execution is free, but any tool registered with the model is visible on every request. Measured on this repo:
+
+| Component | Tokens | When |
+|---|---|---|
+| Scan / lint / fix / update (local work) | **0** | always |
+| `skills_doctor` tool definition | **~191** | every request |
+| Budget warning injected into the system prompt | **~60–80** | once per session, only when over budget |
+| Audit report returned by the tool | **~940** | only when the tool is actually called |
+
+So the plugin trades a small fixed overhead for the agent being able to audit by itself. In the example above the skill descriptions cost 3,074 tokens per step; dropping that to the 1,200 budget saves more than 10× the plugin overhead. If you want **zero** context cost, don't install the plugin — run `npx opencode-skills-doctor check` from the terminal or CI instead.
 
 ## Configuration
 
@@ -221,6 +269,29 @@ Restart DSH. The tool shows up as `mcp__skills_doctor__skills_doctor`.
 
 On Windows, if the stdio spawn cannot resolve `npx`, use `command: cmd` and `args: ["/c", "npx", "-y", "opencode-skills-doctor", "mcp"]`.
 
+## How it works
+
+**Audit pipeline**
+
+1. Discover every skill source (see the precedence list below).
+2. Parse each `SKILL.md` / flat `.md` frontmatter and estimate its description/body cost.
+3. Resolve which definition wins for each ID (later registration wins; `SKILL.md` directory form wins ties).
+4. Run the rules, compute the per-step token budget, and emit findings with fix hints.
+
+**Fix pipeline**
+
+`fix` only touches definitions that are shadowed (never loaded): it moves them into `.skills-doctor-archive/<timestamp>/` inside the same source. The effective definition is never moved, and files managed by `update` are skipped. Scope defaults to the project; `--all` extends it to global sources.
+
+**Update pipeline**
+
+1. Fetch `<catalog>/index.json` (3 attempts with backoff on 5xx/network errors).
+2. Compare each skill's `version` with the lockfile.
+3. Download changed files (same-origin only, path traversal blocked) and write them atomically.
+4. Delete files the new version no longer lists, and clean empty directories.
+5. Verify hashes, write the lockfile, and — with `--prune` — delete skills removed from the catalog.
+
+`check` reads the lockfile and reports drift (`managed-drift`), missing files (`managed-missing`) and unknown lock versions (`lock-version-unsupported`). Re-running `update` re-downloads drifted files.
+
 ## Rules
 
 | Rule | Level | Meaning |
@@ -297,17 +368,61 @@ See [SECURITY.md](SECURITY.md) for the full threat model, hardening checklist an
 - `check` is offline; ask a catalog for new versions with `update --check-only`.
 - Config precedence is assumed: global config < project config < `skills` array order.
 
+## FAQ and troubleshooting
+
+**A skill I created does not appear.**
+Check: does the file have a `description`? Is it hidden via `opencode/autoinvoke: false` or `disable-model-invocation`? Is the ID derived from the path (directory name for `SKILL.md`, filename for flat `.md`)? Is an earlier/later source shadowing it? `skills-doctor scan` shows the winning definition for each ID.
+
+**`fix` did nothing.**
+`fix` only archives **shadowed** duplicates and defaults to project-only. Run `skills-doctor fix --dry-run` to see what it would do, and `--all` to include global sources. Content issues (long descriptions, large bodies) are reported, not rewritten.
+
+**`check` says the budget is exceeded but the agent feels fine.**
+The token numbers are heuristics, and the 1,200-token budget is a recommendation. Tune it with `--budget` or `.skills-doctor.json`; treat the report as a relative comparison, not billing.
+
+**Where did `fix` move my files?**
+Into `.skills-doctor-archive/<timestamp>/` inside the same skill source. Move them back to restore.
+
+**Does it update skills automatically in the background?**
+No daemon. Run `skills-doctor update` when you want to sync; use `--check-only` to just list available updates.
+
+**Does it work on OpenCode 1.x?**
+Yes — the CLI works on both lines, and `skills-doctor install` wires up the 1.x plugin (local plugin entry + generated command). 1.x has no `/skills-doctor` command registration from plugins, so the installer writes a command file instead.
+
+**Why does the plugin cost tokens if it runs locally?**
+Executing code is free, but the tool definition is part of the model's context. That is why the CLI mode exists: zero context cost.
+
 ## Roadmap
 
 - v0.4: content-aware suggestions (which skills are never used), catalog signature verification
 - Later: V1/Claude skill migration report
 
-## Development
+## Development and contributing
 
 ```powershell
-npm test
+npm test          # 41 tests (node test/doctor.test.mjs)
+npm run bench     # lint timing for 100/500/1000 skills
 ```
 
-Coverage: frontmatter parsing, source discovery and precedence, shadowing/duplication/budget rules, catalog download and lock, drift detection and self-healing, old/new lock compatibility, CLI JSON output and exit codes.
+- CI runs on ubuntu/macos/windows × Node 20/22/24; `prepublishOnly` re-runs the tests before every publish.
+- Issues and PRs are welcome: for behavior changes, open an issue first with the scenario and expected output. Link the issue in the PR.
+- Keep the CLI dependency-free and the output bilingual (`--lang en|zh`) — both are project invariants.
+- Security reports: see [SECURITY.md](SECURITY.md); do not open a public issue for vulnerabilities.
+- Release notes live in [CHANGELOG.md](CHANGELOG.md).
+
+### Project layout
+
+| Path | Purpose |
+|---|---|
+| `src/audit.mjs` | one-call audit used by CLI, plugin and MCP |
+| `src/discover.mjs` | source discovery, precedence, JSONC parsing |
+| `src/lint.mjs` | rules, token budget, near-duplicate detection |
+| `src/fix.mjs` | archive / hide |
+| `src/catalog.mjs` | updater, lockfile, retries, atomic writes |
+| `src/managed.mjs` | lock verification and drift detection |
+| `src/cli.mjs` | command dispatch and output |
+| `src/i18n.mjs` | English/Chinese strings |
+| `src/mcp.mjs` | MCP stdio server |
+| `src/plugin.mjs` / `src/plugin-v1.mjs` | OpenCode 2.x / 1.x entries |
+| `src/install.mjs` | one-command OpenCode integration |
 
 MIT

@@ -1,10 +1,27 @@
 # skills-doctor
 
+[![npm](https://img.shields.io/npm/v/opencode-skills-doctor)](https://www.npmjs.com/package/opencode-skills-doctor)
+[![downloads](https://img.shields.io/npm/dw/opencode-skills-doctor)](https://www.npmjs.com/package/opencode-skills-doctor)
+[![node](https://img.shields.io/node/v/opencode-skills-doctor)](https://www.npmjs.com/package/opencode-skills-doctor)
+[![license](https://img.shields.io/npm/l/opencode-skills-doctor)](../LICENSE)
 [![test](https://github.com/wangyuchen5110/opencodeplugginprogram/actions/workflows/test.yml/badge.svg)](https://github.com/wangyuchen5110/opencodeplugginprogram/actions/workflows/test.yml)
 
 OpenCode skill 的**本地检测器 + 更新器 + 修复器**，并附带 **OpenCode 插件入口** —— 零依赖，Node ≥ 20。
 
-[English](../README.md) | **简体中文**
+[English](../README.md) | **简体中文** · [变更记录](../CHANGELOG.md) · [安全策略](../SECURITY.zh-CN.md)
+
+## 一张表看懂
+
+| | |
+|---|---|
+| **是什么** | 审计、修复、更新 coding agent 加载的 skill |
+| **形态** | CLI · OpenCode 插件（1.x / 2.x）· MCP server（Claude Code、Codex、DSH…） |
+| **来源** | `.opencode/skills`、`.claude/skills`、`.agents/skills`、`opencode.json(c)` 配置、HTTP catalog |
+| **能查** | 同 ID 遮蔽、重复、超长描述、超大正文、每步 token 预算、陈旧 skill |
+| **能修** | 归档遮蔽定义（可逆）、隐藏低频 skill、catalog 同步并检测 drift |
+| **成本** | CLI 0 token；插件工具定义约 191/步，另有每会话一次预警 |
+| **要求** | Node ≥ 20，零运行时依赖 |
+| **质量** | 41 个测试，ubuntu/macos/windows × Node 20/22/24 CI |
 
 ## 为什么需要它
 
@@ -36,6 +53,24 @@ node bin/skills-doctor.mjs check
 # 或本地安装
 npm link
 skills-doctor check
+```
+
+跑出来大概是这样：
+
+```text
+skills-doctor 0.3.11
+  来源: 5 个（存在 2 个）  定义: 29  唯一 ID: 29  会展示: 29  描述预算: ~3074 tokens
+
+[E] token-budget   模型每步要看到的 skill 描述约 3074 tokens，超过预算 1200 的 2 倍
+[W] long-description  "deep-research" 的 description 有 917 字符，每个模型步骤都会占上下文
+[W] large-body     "academic-paper" 正文约 9980 tokens，被调用时会整段塞进上下文
+...
+
+1 error, 18 warn, 0 info
+
+建议:
+  - 精简 description，或把低频 skill 设为 metadata.opencode/autoinvoke: false 隐藏。
+  - 正文拆到 references/，SKILL.md 只保留流程。
 ```
 
 ## 命令
@@ -94,6 +129,19 @@ skills-doctor update --into .\team-skills
 - `check` 会读这个 lock：显示托管版本、发现文件被手改（`managed-drift`）、文件被删（`managed-missing`）；
 - 再跑一次 `update` 会自动重下被改坏的文件（drift 自愈）；
 - 用 `--prune` 删除 catalog 中已下架的 skill（默认只提示、不删）。
+
+## 插件到底费不费 token？
+
+本地执行不花 token，但注册给模型的工具每次请求都会带上定义。本仓库实测：
+
+| 项 | token | 何时产生 |
+|---|---|---|
+| 扫描 / 检测 / 修复 / 更新（本地） | **0** | 始终 |
+| `skills_doctor` 工具定义 | **约 191** | 每次请求 |
+| 注入系统提示的预算预警 | **约 60–80** | 每会话一次，且仅在超标时 |
+| 工具返回的审计报告 | **约 940** | 仅真正调用工具时 |
+
+所以插件是用固定的少量开销，换「模型能自己体检」。上面的例子里 skill 描述每步 3074 tokens，压到 1200 预算能省下 10 倍于插件开销的 token。想要**零上下文成本**，就别装插件——用 `npx opencode-skills-doctor check` 在终端或 CI 里跑。
 
 ## 配置
 
@@ -221,6 +269,29 @@ DSH 自带 MCP 客户端 bundle（`@deepseek-ai/dsh-mcp-client`）。在 profile
 
 Windows 上如果 stdio 起不来 `npx`，改成 `command: cmd`、`args: ["/c", "npx", "-y", "opencode-skills-doctor", "mcp"]`。
 
+## 工作原理
+
+**审计流程**
+
+1. 发现所有 skill 来源（见下面的优先级列表）。
+2. 解析每个 `SKILL.md` / 扁平 `.md` 的 frontmatter，估算描述与正文成本。
+3. 解析每个 ID 实际生效的定义（注册越后越优先；同序时 `SKILL.md` 目录形式优先）。
+4. 跑规则、计算每步 token 预算，输出 finding 与修复建议。
+
+**修复流程**
+
+`fix` 只动「被遮蔽、永远不会加载」的定义：把它们移到同一来源下的 `.skills-doctor-archive/<时间戳>/`。生效版本永远不会被移动，`update` 管理的文件会跳过。默认只处理项目内，`--all` 才扩展到全局来源。
+
+**更新流程**
+
+1. 抓 `<catalog>/index.json`（5xx/网络错误重试 3 次）。
+2. 对比每个 skill 的 `version` 与 lockfile。
+3. 下载变化的文件（仅同源、阻断路径穿越），原子写入。
+4. 删除新版本不再包含的文件，清理空目录。
+5. 校验哈希、写 lockfile；加 `--prune` 时删除已从 catalog 下架的 skill。
+
+`check` 会读 lockfile，报告 drift（`managed-drift`）、文件缺失（`managed-missing`）和未知 lock 版本（`lock-version-unsupported`）；再跑一次 `update` 会重下被改坏的文件。
+
 ## 检测规则
 
 | 规则 | 级别 | 含义 |
@@ -297,17 +368,61 @@ Windows 上如果 stdio 起不来 `npx`，改成 `command: cmd`、`args: ["/c", 
 - `check` 不联网；要看 catalog 新版本用 `update --check-only`。
 - 配置优先级假设：全局配置 < 项目配置 < `skills` 数组顺序。
 
+## 常见问题（FAQ）
+
+**我建的 skill 没出现。**
+依次检查：有没有 `description`？是不是被 `opencode/autoinvoke: false` 或 `disable-model-invocation` 隐藏了？ID 是否按路径推导（目录形式取目录名，扁平 `.md` 取文件名）？是不是被别的来源遮蔽了？跑 `skills-doctor scan` 能看到每个 ID 实际生效的是哪份。
+
+**`fix` 跑了但什么都没变。**
+`fix` 只归档**被遮蔽**的重复定义，而且默认只处理项目内。先 `skills-doctor fix --dry-run` 看会做什么；要动全局加 `--all`。描述过长、正文过大属于内容问题，只报告、不自动改写。
+
+**`check` 说预算超标，但用起来没感觉。**
+token 是启发式估算，1200 是建议预算。可以用 `--budget` 或 `.skills-doctor.json` 调整；把它当相对比较，不是账单。
+
+**`fix` 把我的文件挪到哪了？**
+同一 skill 来源下的 `.skills-doctor-archive/<时间戳>/`，移回去即可恢复。
+
+**会在后台自动更新 skill 吗？**
+没有常驻进程。想同步时跑 `skills-doctor update`；只想看有没有新版本用 `--check-only`。
+
+**支持 OpenCode 1.x 吗？**
+支持。CLI 两条线都能用；`skills-doctor install` 会给 1.x 写本地插件入口并生成命令文件（1.x 没有插件注册命令的 API）。
+
+**本地插件为什么还费 token？**
+执行代码免费，但工具定义会进模型上下文。这也是保留 CLI 模式的原因：零上下文成本。
+
 ## Roadmap
 
 - v0.4：内容层面的建议（哪些 skill 从未被使用）、catalog 签名校验
 - 后续：V1/Claude skill 兼容迁移报告
 
-## 开发
+## 开发与贡献
 
 ```powershell
-npm test
+npm test          # 41 个测试（node test/doctor.test.mjs）
+npm run bench     # 100/500/1000 个 skill 的 lint 耗时
 ```
 
-测试覆盖：frontmatter 解析、来源发现与优先级、遮蔽/重复/预算规则、catalog 下载与 lock、drift 检测与自愈、旧/新 lock 的向上兼容、CLI JSON 与退出码。
+- CI 跑 ubuntu/macos/windows × Node 20/22/24；`prepublishOnly` 会在每次发布前重跑测试。
+- 欢迎 issue 和 PR：行为改动请先开 issue 说明场景与期望输出，PR 里关联该 issue。
+- 两条不变量：CLI 保持零依赖；输出保持中英双语（`--lang en|zh`）。
+- 安全问题请看 [SECURITY.zh-CN.md](../SECURITY.zh-CN.md)，不要开公开 issue。
+- 版本记录见 [CHANGELOG.md](../CHANGELOG.md)。
+
+### 目录结构
+
+| 路径 | 作用 |
+|---|---|
+| `src/audit.mjs` | 一次完整审计（CLI / 插件 / MCP 共用） |
+| `src/discover.mjs` | 来源发现、优先级、JSONC 解析 |
+| `src/lint.mjs` | 规则、token 预算、近似描述检测 |
+| `src/fix.mjs` | 归档 / hide |
+| `src/catalog.mjs` | 更新器、lockfile、重试、原子写入 |
+| `src/managed.mjs` | lock 校验与 drift 检测 |
+| `src/cli.mjs` | 命令分发与输出 |
+| `src/i18n.mjs` | 中英文案 |
+| `src/mcp.mjs` | MCP stdio server |
+| `src/plugin.mjs` / `src/plugin-v1.mjs` | OpenCode 2.x / 1.x 入口 |
+| `src/install.mjs` | 一键接入 OpenCode |
 
 MIT

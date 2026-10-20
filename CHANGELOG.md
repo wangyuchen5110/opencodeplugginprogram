@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.12
+
+- Docs: expanded the GitHub README with an at-a-glance table, measured token costs, how-it-works pipelines, FAQ/troubleshooting, contributing guide and project layout.
+- Docs: mirrored all new sections in the Chinese README.
+- Docs: added npm/downloads/node/license badges and links to the changelog and security policy.
+
 ## 0.3.11
 
 - Added `install` command: one-command OpenCode integration for 1.x/2.x (detects version, backs up config, writes plugin entry, generates the 1.x `/skills-doctor` command).
