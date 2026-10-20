@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.13
+
+- Docs: clarify that 1.x plugins cannot register slash commands and that `install` generates a markdown command instead.
+- Docs: refresh the sample output version.
+
 ## 0.3.12
 
 - Docs: expanded the GitHub README with an at-a-glance table, measured token costs, how-it-works pipelines, FAQ/troubleshooting, contributing guide and project layout.

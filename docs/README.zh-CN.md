@@ -58,7 +58,7 @@ skills-doctor check
 跑出来大概是这样：
 
 ```text
-skills-doctor 0.3.11
+skills-doctor 0.3.13
   来源: 5 个（存在 2 个）  定义: 29  唯一 ID: 29  会展示: 29  描述预算: ~3074 tokens
 
 [E] token-budget   模型每步要看到的 skill 描述约 3074 tokens，超过预算 1200 的 2 倍
@@ -201,7 +201,7 @@ export { SkillsDoctorPlugin } from "opencode-skills-doctor/v1"
 }
 ```
 
-它会注册同样的 `skills_doctor` 工具（1.x 没有 `/skills-doctor` 命令钩子）。
+它会注册同样的 `skills_doctor` 工具。1.x 插件无法注册命令，`skills-doctor install` 会生成 `/skills-doctor` 的 markdown 命令。
 
 > 包根入口是 V2 插件，需要 OpenCode 2.x；CLI 两条线都能用。
 
@@ -351,7 +351,7 @@ Windows 上如果 stdio 起不来 `npx`，改成 `command: cmd`、`args: ["/c", 
 
 - OpenCode **2.x**：在 `opencode.jsonc` 加 `"plugins": ["opencode-skills-doctor"]` 即可。
 - OpenCode **1.x**：需要 `npm i --prefix ~/.config/opencode opencode-skills-doctor`，再加一个一行本地插件文件（`export { SkillsDoctorPlugin } from "opencode-skills-doctor/v1"`）——因为 1.x 解析插件的机制不同，且 `@opencode-ai/plugin` 是可选 peer 依赖。
-- 1.x **没有 `/skills-doctor` 命令**，只有 `skills_doctor` 工具。
+- 1.x 没有「插件注册 /skills-doctor 命令」的能力；`skills-doctor install` 会生成 markdown 命令文件来代替。
 
 **安全性 / 行为**
 

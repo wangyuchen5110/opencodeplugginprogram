@@ -58,7 +58,7 @@ skills-doctor check
 What a run looks like:
 
 ```text
-skills-doctor 0.3.11
+skills-doctor 0.3.13
   sources: 5 (2 exist)  definitions: 29  unique IDs: 29  advertised: 29  description budget: ~3074 tokens
 
 [E] token-budget   Advertised skill descriptions cost about 3074 tokens per model step, over 2x the 1200 budget
@@ -201,7 +201,7 @@ export { SkillsDoctorPlugin } from "opencode-skills-doctor/v1"
 }
 ```
 
-It registers the same `skills_doctor` tool (1.x has no `/skills-doctor` command hook).
+It registers the same `skills_doctor` tool. 1.x plugins cannot register commands, so `skills-doctor install` writes a `/skills-doctor` markdown command.
 
 > The package root entry is the V2 plugin and requires OpenCode 2.x. The CLI works on both lines.
 
@@ -351,7 +351,7 @@ See [SECURITY.md](SECURITY.md) for the full threat model, hardening checklist an
 
 - OpenCode **2.x**: add `"plugins": ["opencode-skills-doctor"]` to `opencode.jsonc` — done.
 - OpenCode **1.x**: needs `npm i --prefix ~/.config/opencode opencode-skills-doctor` plus a one-line local plugin file (`export { SkillsDoctorPlugin } from "opencode-skills-doctor/v1"`), because 1.x resolves plugins differently and `@opencode-ai/plugin` is an optional peer.
-- 1.x has **no `/skills-doctor` command** — only the `skills_doctor` tool.
+- 1.x has no plugin-registered `/skills-doctor` command; `skills-doctor install` writes a markdown command file instead.
 
 **Safety / behavior**
 
