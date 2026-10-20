@@ -68,6 +68,41 @@ function lockEntryVersion(entry) {
   return null
 }
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+/** fetch + 有限重试（5xx 与网络错误），避免 catalog 抖动直接失败。 */
+async function fetchWithRetry(fetchImpl, url, timeoutMs, attempts = 3) {
+  let lastError
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      const res = await fetchImpl(url, { signal: AbortSignal.timeout(timeoutMs) })
+      if (res.status >= 500 && attempt < attempts - 1) {
+        await sleep(200 * 2 ** attempt)
+        continue
+      }
+      return res
+    } catch (err) {
+      lastError = err
+      if (attempt < attempts - 1) await sleep(200 * 2 ** attempt)
+    }
+  }
+  throw lastError ?? new Error("fetch failed")
+}
+
+/** 先写临时文件再原子替换，避免中途失败留下半截文件。 */
+function writeFileAtomic(target, data) {
+  const tmp = `${target}.tmp-${process.pid}-${Math.random().toString(16).slice(2)}`
+  fs.writeFileSync(tmp, data)
+  try {
+    fs.renameSync(tmp, target)
+  } catch (err) {
+    try {
+      fs.rmSync(tmp, { force: true })
+    } catch {}
+    throw err
+  }
+}
+
 function pruneEmptyDirs(dir, stopDir) {
   const stop = path.resolve(stopDir)
   let current = path.resolve(dir)
@@ -96,7 +131,7 @@ function filesMatch(into, name, files, t) {
 /** 抓取 <url>/index.json。未知字段一律忽略（向上兼容）。 */
 export async function fetchCatalogIndex(url, { fetchImpl = fetch, timeoutMs = 15000, t = translator("en") } = {}) {
   const base = url.replace(/\/+$/, "")
-  const res = await fetchImpl(`${base}/index.json`, { signal: AbortSignal.timeout(timeoutMs) })
+  const res = await fetchWithRetry(fetchImpl, `${base}/index.json`, timeoutMs)
   if (!res.ok) throw new Error(t("catalog.indexHttp", { status: res.status }))
   const json = await res.json()
   if (!json || !Array.isArray(json.skills)) throw new Error(t("catalog.indexShape"))
@@ -162,12 +197,12 @@ export async function updateCatalogs(
           const encodedPath = file.split("/").map(encodeURIComponent).join("/")
           const fileUrl = new URL(`${encodeURIComponent(entry.name)}/${encodedPath}`, baseUrl)
           if (fileUrl.origin !== baseUrl.origin) throw new Error(t("catalog.crossOrigin", { file }))
-          const res = await fetchImpl(fileUrl, { signal: AbortSignal.timeout(30000) })
+          const res = await fetchWithRetry(fetchImpl, fileUrl, 30000)
           if (!res.ok) throw new Error(t("catalog.fileHttp", { name: entry.name, file, status: res.status }))
           const buffer = Buffer.from(await res.arrayBuffer())
           const target = resolveInside(path.join(into, entry.name), file, t)
           fs.mkdirSync(path.dirname(target), { recursive: true })
-          fs.writeFileSync(target, buffer)
+          writeFileAtomic(target, buffer)
           hashes[file] = sha1Buffer(buffer)
           result.files++
         }
@@ -219,7 +254,7 @@ export async function updateCatalogs(
     lock.version = LOCK_VERSION
     lock.generatedAt = new Date().toISOString()
     fs.mkdirSync(path.dirname(lockPath), { recursive: true })
-    fs.writeFileSync(lockPath, JSON.stringify(lock, null, 2) + "\n", "utf8")
+    writeFileAtomic(lockPath, JSON.stringify(lock, null, 2) + "\n")
   }
 
   return { lockPath, lockTooNew, results }

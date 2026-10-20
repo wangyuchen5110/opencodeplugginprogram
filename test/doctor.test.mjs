@@ -344,6 +344,41 @@ async function startCatalog(getVersion = () => "1") {
   }
 }
 
+test("更新器：index.json 5xx 会重试", async () => {
+  let calls = 0
+  const server = http.createServer((req, res) => {
+    if (req.url === "/skills/index.json") {
+      calls++
+      if (calls === 1) {
+        res.statusCode = 503
+        res.end("busy")
+        return
+      }
+      res.setHeader("content-type", "application/json")
+      res.end(JSON.stringify({ skills: [{ name: "hello", version: "1", files: ["SKILL.md"] }] }))
+      return
+    }
+    if (req.url === "/skills/hello/SKILL.md") {
+      res.end("---\nname: Hello\ndescription: hello\n---\nbody")
+      return
+    }
+    res.statusCode = 404
+    res.end()
+  })
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve))
+  const url = `http://127.0.0.1:${server.address().port}/skills`
+  const into = tmpdir()
+
+  try {
+    const result = await updateCatalogs([{ url }], { into })
+    assert.equal(result.results[0].error, null)
+    assert.ok(calls >= 2, "5xx 后应重试")
+    assert.ok(fs.existsSync(path.join(into, "hello", "SKILL.md")))
+  } finally {
+    await new Promise((resolve) => server.close(resolve))
+  }
+})
+
 test("更新器：新版本删除旧文件；--prune 清理已下架的 skill", async () => {
   const state = { version: "1", files: ["SKILL.md", "references/old.md"], active: true }
   const server = http.createServer((req, res) => {

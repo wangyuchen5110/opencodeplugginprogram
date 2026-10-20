@@ -4,7 +4,7 @@
 
 OpenCode skill 的**本地检测器 + 更新器 + 修复器**，并附带 **OpenCode 插件入口** —— 零依赖，Node ≥ 20。
 
-[English](README.md) | **简体中文**
+[English](../README.md) | **简体中文**
 
 ## 为什么需要它
 
@@ -252,7 +252,7 @@ Windows 上如果 stdio 起不来 `npx`，改成 `command: cmd`、`args: ["/c", 
 - `fix` / `--prune` 会移动或删除文件——先 `--dry-run` 预览；
 - 它**不是沙箱**，不限制 agent 能做什么。
 
-完整威胁模型、加固清单和私密漏洞报告方式见 [SECURITY.zh-CN.md](SECURITY.zh-CN.md)。
+完整威胁模型、加固清单和私密漏洞报告方式见 [SECURITY.zh-CN.md](../SECURITY.zh-CN.md)。
 
 ## 注意事项与已知限制
 

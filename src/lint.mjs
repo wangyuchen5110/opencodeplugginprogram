@@ -157,16 +157,20 @@ export function lint(skills, options = {}) {
     })
   }
 
-  // 5) 描述近似
-  const withDesc = described
+  // 5) 描述近似（token 集合只算一次；先按集合大小做 0.75 上界预筛）
+  const withDesc = described.map((skill) => ({ skill, tokens: tokenSet(skill.description) }))
   const pairs = []
   for (let i = 0; i < withDesc.length; i++) {
     for (let j = i + 1; j < withDesc.length; j++) {
       const a = withDesc[i]
       const b = withDesc[j]
-      if (a.id === b.id) continue
-      const score = jaccard(tokenSet(a.description), tokenSet(b.description))
-      if (score >= NEAR_DUPLICATE_THRESHOLD) pairs.push({ a: a.id, b: b.id, score })
+      if (a.skill.id === b.skill.id) continue
+      const min = Math.min(a.tokens.size, b.tokens.size)
+      const max = Math.max(a.tokens.size, b.tokens.size)
+      // Jaccard ≤ min/max，所以比值低于阈值时不可能达到阈值
+      if (!min || min / max < NEAR_DUPLICATE_THRESHOLD) continue
+      const score = jaccard(a.tokens, b.tokens)
+      if (score >= NEAR_DUPLICATE_THRESHOLD) pairs.push({ a: a.skill.id, b: b.skill.id, score })
     }
   }
   for (const pair of pairs.slice(0, 15)) {

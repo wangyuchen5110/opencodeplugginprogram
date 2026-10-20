@@ -4,7 +4,7 @@
 
 Local scanner, linter, fixer, updater and **OpenCode plugin** for skills — zero dependencies, Node ≥ 20.
 
-**English** | [简体中文](README.zh-CN.md)
+**English** | [简体中文](docs/README.zh-CN.md)
 
 ## Why
 
