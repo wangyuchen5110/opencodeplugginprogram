@@ -225,6 +225,19 @@ npx opencode-skills-doctor install
 - `/skills-doctor` 命令（1.x 是生成的 markdown 命令，2.x 是插件命令）；
 - 当 skill 描述预算超标时，系统提示里会注入一次提醒（每个会话最多一次）。
 
+### 卸载
+
+```powershell
+npx opencode-skills-doctor uninstall
+```
+
+- **2.x** —— 从 `plugins` 移除 `opencode-skills-doctor`；
+- **1.x** —— 移除配置条目、删除生成的插件入口和 `/skills-doctor` 命令、卸载 npm 包（`--no-npm` 可跳过）；
+- 只删除安装器生成的文件；你手改过的文件会保留并提示；
+- 改配置前会备份；`--dry-run` 预览，`--config-dir` 指定目录。
+
+你的数据不会被自动删除：`.skills-doctor.json`、`.skills-doctor.lock.json`、`.skills-doctor-archive/` 需要手动清理。其他客户端（Claude Code、Codex、DSH）的 MCP 配置也需在各自配置里删除。
+
 ## MCP server（Claude Code、Codex、Kimi Code、任何 MCP 客户端）
 
 `skills-doctor mcp` 用 stdio 讲 Model Context Protocol，只暴露一个工具：`skills_doctor`，参数 `directory?`、`budget?`、`lang?`、`global?`。不需要装 OpenCode。

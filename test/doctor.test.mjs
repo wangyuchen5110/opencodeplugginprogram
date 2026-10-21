@@ -13,7 +13,7 @@ import { updateCatalogs, validateCatalogEntry } from "../src/catalog.mjs"
 import { planFixes, applyFixes, hideSkills } from "../src/fix.mjs"
 import { auditSkills, formatMarkdown } from "../src/audit.mjs"
 import { handleMessage, toolDefinition, startMcpServer, PROTOCOL_VERSION } from "../src/mcp.mjs"
-import { installOpenCode } from "../src/install.mjs"
+import { installOpenCode, uninstallOpenCode } from "../src/install.mjs"
 import { budgetWarning, resetWarningState } from "../src/warning.mjs"
 import { normalizeLang, translator } from "../src/i18n.mjs"
 import { main } from "../src/cli.mjs"
@@ -739,6 +739,40 @@ test("install: --dry-run 不写任何文件", () => {
   assert.ok(result.actions.some((action) => action.startsWith("[dry-run]")))
   assert.ok(!fs.existsSync(path.join(dir, "plugins", "skills-doctor.js")))
   assert.ok(!fs.existsSync(path.join(dir, "opencode.json")))
+})
+
+test("uninstall: 1.x 移除条目、删除生成文件；2.x 移除 plugins", () => {
+  const dir1 = tmpdir()
+  installOpenCode({ configDir: dir1, version: "1.18.4", installPackage: false })
+  const result1 = uninstallOpenCode({ configDir: dir1, version: "1.18.4", removePackage: false })
+  assert.equal(result1.errors.length, 0)
+  assert.ok(!fs.existsSync(path.join(dir1, "plugins", "skills-doctor.js")))
+  assert.ok(!fs.existsSync(path.join(dir1, "command", "skills-doctor.md")))
+  const cfg1 = JSON.parse(fs.readFileSync(path.join(dir1, "opencode.json"), "utf8"))
+  assert.ok(!(cfg1.plugin ?? []).some((entry) => entry.endsWith("skills-doctor.js")))
+
+  const dir2 = tmpdir()
+  write(path.join(dir2, "opencode.jsonc"), `{ "model": "m" }\n`)
+  installOpenCode({ configDir: dir2, version: "2.0.32" })
+  const result2 = uninstallOpenCode({ configDir: dir2, version: "2.0.32" })
+  assert.equal(result2.errors.length, 0)
+  const cfg2 = JSON.parse(fs.readFileSync(path.join(dir2, "opencode.jsonc"), "utf8"))
+  assert.ok(!(cfg2.plugins ?? []).includes("opencode-skills-doctor"))
+})
+
+test("uninstall: --dry-run 不改文件，用户自定义文件不被删除", () => {
+  const dir = tmpdir()
+  installOpenCode({ configDir: dir, version: "1.18.4", installPackage: false })
+
+  const dry = uninstallOpenCode({ configDir: dir, version: "1.18.4", dryRun: true, removePackage: false })
+  assert.ok(dry.actions.some((action) => action.startsWith("[dry-run]")))
+  assert.ok(fs.existsSync(path.join(dir, "plugins", "skills-doctor.js")))
+
+  const custom = path.join(dir, "plugins", "skills-doctor.js")
+  fs.writeFileSync(custom, "// my own plugin\nexport const X = 1\n")
+  const result = uninstallOpenCode({ configDir: dir, version: "1.18.4", removePackage: false })
+  assert.ok(fs.existsSync(custom), "用户自定义文件应保留")
+  assert.ok(result.actions.some((action) => action.includes("kept")))
 })
 
 test("warning: 每个会话最多提示一次，不同会话独立", () => {

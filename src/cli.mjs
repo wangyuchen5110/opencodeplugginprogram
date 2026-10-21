@@ -8,7 +8,7 @@ import { planFixes, applyFixes, hideSkills } from "./fix.mjs"
 import { auditSkills } from "./audit.mjs"
 import { loadConfig } from "./config.mjs"
 import { startMcpServer } from "./mcp.mjs"
-import { installOpenCode } from "./install.mjs"
+import { installOpenCode, uninstallOpenCode } from "./install.mjs"
 import { padDisplay } from "./parse.mjs"
 import { detectLang, normalizeLang, translator } from "./i18n.mjs"
 
@@ -64,7 +64,7 @@ function parseArgs(argv) {
   }
 
   const args = [...argv]
-  const commands = new Set(["check", "scan", "update", "fix", "install", "mcp", "help"])
+  const commands = new Set(["check", "scan", "update", "fix", "install", "uninstall", "mcp", "help"])
   if (args[0] && commands.has(args[0])) {
     options.command = args.shift()
   }
@@ -470,6 +470,28 @@ export async function main(argv) {
       for (const error of result.errors) console.log(red(t("install.error", { error })))
       console.log("")
       console.log(result.errors.length ? red(t("install.failed")) : dim(t("install.next")))
+    }
+    process.exitCode = result.errors.length ? 1 : 0
+    return
+  }
+
+  if (options.command === "uninstall") {
+    const result = uninstallOpenCode({
+      configDir: options.configDir ?? undefined,
+      dryRun: options.dryRun,
+      removePackage: !options.noNpm,
+    })
+    if (options.json) {
+      console.log(JSON.stringify(result, null, 2))
+    } else {
+      console.log(bold(t("uninstall.title")))
+      console.log(dim(t("install.version", { version: result.version ?? "unknown" })))
+      console.log(dim(t("install.configDir", { dir: result.configDir })))
+      if (result.dryRun) console.log(dim(t("install.dryRun")))
+      for (const action of result.actions) console.log(`  · ${action}`)
+      for (const error of result.errors) console.log(red(t("install.error", { error })))
+      console.log("")
+      console.log(result.errors.length ? red(t("install.failed")) : dim(t("uninstall.next")))
     }
     process.exitCode = result.errors.length ? 1 : 0
     return
