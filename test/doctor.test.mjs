@@ -773,6 +773,12 @@ test("uninstall: --dry-run 不改文件，用户自定义文件不被删除", ()
   const result = uninstallOpenCode({ configDir: dir, version: "1.18.4", removePackage: false })
   assert.ok(fs.existsSync(custom), "用户自定义文件应保留")
   assert.ok(result.actions.some((action) => action.includes("kept")))
+
+  // 手写的转发文件（无生成标记）也应被识别并删除
+  fs.writeFileSync(custom, 'export { SkillsDoctorPlugin } from "opencode-skills-doctor/v1"\n')
+  const result2 = uninstallOpenCode({ configDir: dir, version: "1.18.4", removePackage: false })
+  assert.ok(!fs.existsSync(custom), "转发入口应被删除")
+  assert.equal(result2.errors.length, 0)
 })
 
 test("warning: 每个会话最多提示一次，不同会话独立", () => {

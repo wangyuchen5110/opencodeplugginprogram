@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.15
+
+- Uninstall now also recognizes a hand-written re-export (`export { SkillsDoctorPlugin } from "opencode-skills-doctor/v1"`) as a generated plugin entry, so `uninstall` cleans it up.
+- Tests: 43.
+
 ## 0.3.14
 
 - Added `uninstall` command: reverses `install` for OpenCode 1.x/2.x (removes config entry, generated plugin entry and command file, optionally uninstalls the package).
