@@ -157,6 +157,30 @@ skills-doctor update --into .\team-skills
 
 所以插件是用固定的少量开销，换「模型能自己体检」。上面的例子里 skill 描述每步 3074 tokens，压到 1200 预算能省下 10 倍于插件开销的 token。想要**零上下文成本**，就别装插件——用 `npx opencode-skills-doctor check` 在终端或 CI 里跑。
 
+## 自更新
+
+`skills-doctor` 最多每 24 小时查一次 npm 上自己有没有新版本（CI、非 TTY、`--json` 时自动跳过）：
+
+```powershell
+skills-doctor upgrade            # 立即检查
+skills-doctor upgrade --open     # 检查并打开 GitHub Release 页面
+skills-doctor upgrade --apply    # npm install -g opencode-skills-doctor@latest
+```
+
+在 `.skills-doctor.json` 里永久关闭：
+
+```json
+{ "checkUpdates": "off" }
+```
+
+| 取值 | 行为 |
+|---|---|
+| `"notify"`（默认） | 有新版本时打印一行提示 |
+| `"open"` | 提示 + 自动打开 Release 页面 |
+| `"off"` | 完全不检查 |
+
+单次关闭：`--no-update-check`；环境变量：`SKILLS_DOCTOR_UPDATE_CHECK=0`。插件在有新版本时会把提示注入系统提示（每个会话一次）。检查缓存位于 `~/.skills-doctor/self-update.json`。
+
 ## 配置
 
 在工作目录放一个可选的 `.skills-doctor.json`（或用 `--config <file>` 指定）：
@@ -166,12 +190,13 @@ skills-doctor update --into .\team-skills
   "budget": 1200,
   "staleDays": 180,
   "lang": "en",
+  "checkUpdates": "notify",
   "rules": { "long-description": "off", "hidden-skill": "info" },
   "ignore": ["legacy-skill"]
 }
 ```
 
-`rules` 接受 `off` / `info` / `warn` / `error`；`ignore` 会丢掉只涉及这些 ID 的 finding。命令行参数优先级高于配置文件。
+`rules` 接受 `off` / `info` / `warn` / `error`；`ignore` 会丢掉只涉及这些 ID 的 finding；`checkUpdates` 取 `notify` / `open` / `off`。命令行参数优先级高于配置文件。
 
 ## OpenCode 插件
 
@@ -186,8 +211,10 @@ skills-doctor update --into .\team-skills
 
 它会注册：
 
-- `skills_doctor` 工具（命名空间 `skills`）—— agent 传 `{ directory?, budget? }` 就能拿到 markdown 审计报告；
-- `/skills-doctor` 命令 —— 让 agent 跑一次审计并总结修复建议。
+- `skills_doctor` 工具（命名空间 `skills`）—— agent 传 `{ directory?, budget?, html? }` 就能拿到 markdown 审计报告；
+- `/skills-doctor` 命令 —— 让 agent 跑一次审计并总结修复建议；
+- `/skills-report` —— 先问你要把 HTML 报告存到哪里，再写文件；
+- `/skills-upgrade` —— 检查 skills-doctor 自身有没有新版本。
 
 `@opencode/plugin` 是可选 peer 依赖，运行时由 OpenCode 提供。
 

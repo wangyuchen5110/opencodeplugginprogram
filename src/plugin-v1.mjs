@@ -2,6 +2,24 @@ import { tool } from "@opencode-ai/plugin"
 import { auditSkills, formatMarkdown } from "./audit.mjs"
 import { writeHtmlReport } from "./html.mjs"
 import { budgetWarning } from "./warning.mjs"
+import { loadConfig } from "./config.mjs"
+import { checkForUpdate, resolveMode, toolVersion } from "./self-update.mjs"
+
+const VERSION = toolVersion()
+const notifiedSessions = new Set()
+
+async function updateNote({ directory, sessionID }) {
+  if (!sessionID || notifiedSessions.has(sessionID)) return null
+  notifiedSessions.add(sessionID)
+  try {
+    const { config } = loadConfig(directory)
+    const update = await checkForUpdate({ current: VERSION, mode: resolveMode(config) })
+    if (!update) return null
+    return `skills-doctor ${update.latest} is available (current ${VERSION}). Update: npx -y opencode-skills-doctor@latest upgrade --apply`
+  } catch {
+    return null
+  }
+}
 
 const z = tool.schema
 
@@ -36,6 +54,8 @@ export const SkillsDoctorPlugin = async ({ directory }) => ({
   "experimental.chat.system.transform": async (input, output) => {
     const warning = budgetWarning({ cwd: directory, sessionID: input?.sessionID })
     if (warning) output.system.push(warning)
+    const note = await updateNote({ directory, sessionID: input?.sessionID })
+    if (note) output.system.push(note)
   },
 })
 

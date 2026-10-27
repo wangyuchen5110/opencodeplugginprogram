@@ -17,6 +17,7 @@ import { renderHtml, writeHtmlReport } from "../src/html.mjs"
 import { handleMessage, toolDefinition, startMcpServer, PROTOCOL_VERSION } from "../src/mcp.mjs"
 import { installOpenCode, uninstallOpenCode } from "../src/install.mjs"
 import { budgetWarning, resetWarningState } from "../src/warning.mjs"
+import { compareVersions, resolveMode, checkForUpdate, upgradeCommand } from "../src/self-update.mjs"
 import { normalizeLang, translator } from "../src/i18n.mjs"
 import { main } from "../src/cli.mjs"
 import { PassThrough } from "node:stream"
@@ -904,6 +905,40 @@ test("warning: 每个会话最多提示一次，不同会话独立", () => {
   assert.ok(first && first.includes("skills-doctor"), "应返回预算预警")
   assert.equal(budgetWarning({ cwd: project, includeGlobal: false, sessionID: "s1" }), null)
   assert.ok(budgetWarning({ cwd: project, includeGlobal: false, sessionID: "s2" }))
+})
+
+test("self-update: 版本比较、模式解析、24h 缓存与关闭开关", async () => {
+  assert.equal(compareVersions("0.4.1", "0.4.0"), 1)
+  assert.equal(compareVersions("0.4.0", "0.4.0"), 0)
+  assert.equal(compareVersions("0.4.0", "0.5.0"), -1)
+  assert.equal(compareVersions("0.4.0-beta", "0.4.0"), -1)
+  assert.equal(upgradeCommand(), "npm install -g opencode-skills-doctor@latest")
+
+  assert.equal(resolveMode({}), "notify")
+  assert.equal(resolveMode({ checkUpdates: "off" }), "off")
+  assert.equal(resolveMode({ checkUpdates: false }), "off")
+  assert.equal(resolveMode({ checkUpdates: "open" }), "open")
+  assert.equal(resolveMode({}, { SKILLS_DOCTOR_UPDATE_CHECK: "0" }), "off")
+
+  const cacheFile = path.join(tmpdir(), "self-update.json")
+  let calls = 0
+  const fetchImpl = async () => {
+    calls++
+    return { ok: true, json: async () => ({ version: "9.9.9" }) }
+  }
+  const now = Date.now()
+  const first = await checkForUpdate({ current: "0.4.1", fetchImpl, cacheFile, now })
+  assert.ok(first && first.latest === "9.9.9" && first.cached === false)
+
+  const second = await checkForUpdate({ current: "0.4.1", fetchImpl, cacheFile, now: now + 1000 })
+  assert.equal(second.cached, true)
+  assert.equal(calls, 1)
+
+  const same = await checkForUpdate({ current: "9.9.9", fetchImpl, cacheFile, now: now + 2000 })
+  assert.equal(same, null)
+
+  const off = await checkForUpdate({ current: "0.4.1", mode: "off", fetchImpl, cacheFile, now })
+  assert.equal(off, null)
 })
 
 test("audit: 结构化结果与 markdown 渲染", () => {

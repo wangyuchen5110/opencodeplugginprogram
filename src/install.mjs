@@ -21,9 +21,16 @@ description: Write an HTML skills report to a path you choose
 Ask the user where to save the HTML report (default ./skills-report.html), then call the skills_doctor tool with the html argument set to that path and tell them where it was written. $ARGUMENTS
 `
 
+const V1_UPGRADE_COMMAND = `---
+description: Check whether skills-doctor itself has a newer version
+---
+Run \`npx -y opencode-skills-doctor upgrade\` in the terminal (add --apply only after the user confirms), then report whether a newer version exists. $ARGUMENTS
+`
+
 const V1_COMMANDS = [
   { file: "skills-doctor.md", body: V1_COMMAND },
   { file: "skills-report.md", body: V1_REPORT_COMMAND },
+  { file: "skills-upgrade.md", body: V1_UPGRADE_COMMAND },
 ]
 
 export function defaultConfigDir() {

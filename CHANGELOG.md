@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.1
+
+- Self-update: `upgrade` command checks npm for a newer skills-doctor; `--apply` runs `npm install -g`, `--open` opens the GitHub release page.
+- Automatic daily update check (cached 24h, skipped in CI/non-TTY/`--json`); opt out with `"checkUpdates": "off"`, `SKILLS_DOCTOR_UPDATE_CHECK=0` or `--no-update-check`; `"open"` also opens the release page.
+- Plugin: injects the update notice once per session; new `/skills-upgrade` command (1.x gets a generated `skills-upgrade.md`).
+- Tests: 50.
+
 ## 0.4.0
 
 - Rules: `broken-reference` (missing `references/`, `scripts/`, `assets/`, `templates/`, `examples/` files), `reference-outside-skill`, `invalid-frontmatter` (unclosed fence / wrong types), `empty-body`.

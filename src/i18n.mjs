@@ -12,6 +12,7 @@ Usage:
   skills-doctor update [options]   compare and download skills from HTTP catalogs
   skills-doctor install [options]  wire the plugin into OpenCode (1.x / 2.x)
   skills-doctor uninstall [options] remove it again (config entry, generated files, package)
+  skills-doctor upgrade [options]  check for a newer skills-doctor itself (--apply installs it)
   skills-doctor mcp                run as an MCP server (Claude Code, Codex, any MCP client)
 
 Options:
@@ -33,6 +34,8 @@ Options:
   --open               check: open the HTML report after writing it
   --config-dir <dir>   install/uninstall: OpenCode config directory (default: ~/.config/opencode)
   --no-npm             install/uninstall: do not run npm (1.x)
+  --apply              upgrade: run npm install -g opencode-skills-doctor@latest
+  --no-update-check    skip the automatic update check for this run
   -h, --help           show this help
   -v, --version        print version
 
@@ -90,6 +93,16 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
     "install.next": "Restart OpenCode to activate.",
     "uninstall.title": "Remove OpenCode integration",
     "uninstall.next": "Restart OpenCode to finish removal.",
+    "update.toolAvailable":
+      "  ! skills-doctor {latest} is available (you have {current}); update with: {cmd}  ·  {url}",
+    "upgrade.title": "skills-doctor upgrade",
+    "upgrade.current": "  current: {version}",
+    "upgrade.available": "New version available: {latest} (current {current})",
+    "upgrade.command": "  upgrade with: {cmd}",
+    "upgrade.open": "  release notes: {url}",
+    "upgrade.upToDate": "Already up to date.",
+    "upgrade.done": "Upgraded to the latest version.",
+    "upgrade.failed": "Upgrade failed; run it manually: {cmd}",
     "update.lockTooNew": "  ! lock is newer than this tool; parsed in compatibility mode (unknown fields ignored)",
     "update.detector": "  check now sees these skills ({dir} is where opencode reads)",
     "update.noCatalogs": "No HTTP catalog configured. Add https://... to the skills array in opencode.json(c).",
@@ -184,6 +197,7 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
   skills-doctor update [选项]   对比并拉取 HTTP catalog 里的 skill
   skills-doctor install [选项]  把插件接入 OpenCode（1.x / 2.x）
   skills-doctor uninstall [选项] 撤销安装（配置条目、生成的文件、npm 包）
+  skills-doctor upgrade [选项]  检查 skills-doctor 自身是否有新版本（--apply 直接装）
   skills-doctor mcp            以 MCP server 方式运行（Claude Code、Codex 等任何 MCP 客户端）
 
 选项:
@@ -205,6 +219,8 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
   --open              check: 写完报告后用浏览器打开
   --config-dir <dir>  install/uninstall: OpenCode 配置目录（默认 ~/.config/opencode）
   --no-npm            install/uninstall: 不执行 npm（1.x）
+  --apply             upgrade: 执行 npm install -g opencode-skills-doctor@latest
+  --no-update-check   本次运行跳过自动更新检查
   -h, --help          帮助
   -v, --version       版本
 
@@ -262,6 +278,15 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
     "install.next": "重启 OpenCode 生效。",
     "uninstall.title": "撤销 OpenCode 集成",
     "uninstall.next": "重启 OpenCode 完成卸载。",
+    "update.toolAvailable": "  ! skills-doctor 有新版本 {latest}（当前 {current}）；更新：{cmd}  ·  {url}",
+    "upgrade.title": "skills-doctor 自更新",
+    "upgrade.current": "  当前版本: {version}",
+    "upgrade.available": "发现新版本: {latest}（当前 {current}）",
+    "upgrade.command": "  更新命令: {cmd}",
+    "upgrade.open": "  更新说明: {url}",
+    "upgrade.upToDate": "已是最新版本。",
+    "upgrade.done": "已升级到最新版本。",
+    "upgrade.failed": "升级失败，请手动执行: {cmd}",
     "update.lockTooNew": "  ! lock 版本比本工具新，已按兼容模式解析（未知字段忽略）",
     "update.detector": "  check 现在可以直接检测到这些 skill（{dir} 是 opencode 会读取的目录）",
     "update.noCatalogs": "没有配置 HTTP catalog。在 opencode.json(c) 的 skills 数组里写 https://... 即可。",

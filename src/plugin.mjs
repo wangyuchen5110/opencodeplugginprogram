@@ -2,6 +2,24 @@ import { Plugin } from "@opencode/plugin"
 import { auditSkills, formatMarkdown } from "./audit.mjs"
 import { writeHtmlReport } from "./html.mjs"
 import { budgetWarning } from "./warning.mjs"
+import { loadConfig } from "./config.mjs"
+import { checkForUpdate, resolveMode, toolVersion } from "./self-update.mjs"
+
+const VERSION = toolVersion()
+const notifiedSessions = new Set()
+
+async function updateNote({ directory, sessionID }) {
+  if (!sessionID || notifiedSessions.has(sessionID)) return null
+  notifiedSessions.add(sessionID)
+  try {
+    const { config } = loadConfig(directory)
+    const update = await checkForUpdate({ current: VERSION, mode: resolveMode(config) })
+    if (!update) return null
+    return `skills-doctor ${update.latest} is available (current ${VERSION}). Update: npx -y opencode-skills-doctor@latest upgrade --apply`
+  } catch {
+    return null
+  }
+}
 
 /**
  * OpenCode 插件入口：把 skills-doctor 暴露成 skills_doctor 工具和 /skills-doctor 命令。
@@ -70,12 +88,26 @@ export default Plugin.define({
           })
         },
       })
+      editor.add({
+        name: "skills-upgrade",
+        description: "Check whether skills-doctor itself has a newer version",
+        execute: async ({ sessionID, prompt, delivery }) => {
+          await ctx.session.prompt({
+            ...prompt,
+            sessionID,
+            text: "Run `npx -y opencode-skills-doctor upgrade` in the terminal (add --apply only after I confirm), then report whether a newer version exists.",
+            delivery,
+          })
+        },
+      })
     })
 
     // 每个会话最多注入一次预算预警，避免刷屏
-    await ctx.session.hook("context", (event) => {
+    await ctx.session.hook("context", async (event) => {
       const warning = budgetWarning({ cwd: ctx.location.directory, sessionID: event.sessionID })
       if (warning) event.system.push({ type: "text", text: warning })
+      const note = await updateNote({ directory: ctx.location.directory, sessionID: event.sessionID })
+      if (note) event.system.push({ type: "text", text: note })
     })
   },
 })

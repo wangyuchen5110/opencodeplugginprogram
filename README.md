@@ -157,6 +157,30 @@ Local execution is free, but any tool registered with the model is visible on ev
 
 So the plugin trades a small fixed overhead for the agent being able to audit by itself. In the example above the skill descriptions cost 3,074 tokens per step; dropping that to the 1,200 budget saves more than 10× the plugin overhead. If you want **zero** context cost, don't install the plugin — run `npx opencode-skills-doctor check` from the terminal or CI instead.
 
+## Self-update
+
+`skills-doctor` checks npm for a newer version of itself at most once per 24 hours (skipped in CI, non-TTY and `--json` runs):
+
+```powershell
+skills-doctor upgrade            # check now
+skills-doctor upgrade --open     # check and open the GitHub release page
+skills-doctor upgrade --apply    # npm install -g opencode-skills-doctor@latest
+```
+
+Opt out permanently in `.skills-doctor.json`:
+
+```json
+{ "checkUpdates": "off" }
+```
+
+| Value | Behavior |
+|---|---|
+| `"notify"` (default) | print a one-line notice when a newer version exists |
+| `"open"` | same, plus opens the release page in the browser |
+| `"off"` | never check |
+
+Per run: `--no-update-check`. Per environment: `SKILLS_DOCTOR_UPDATE_CHECK=0`. The plugin injects the same notice into the system prompt once per session when an update exists. Cached state lives in `~/.skills-doctor/self-update.json`.
+
 ## Configuration
 
 Optional `.skills-doctor.json` in the working directory (or pass `--config <file>`):
@@ -166,12 +190,13 @@ Optional `.skills-doctor.json` in the working directory (or pass `--config <file
   "budget": 1200,
   "staleDays": 180,
   "lang": "en",
+  "checkUpdates": "notify",
   "rules": { "long-description": "off", "hidden-skill": "info" },
   "ignore": ["legacy-skill"]
 }
 ```
 
-`rules` accepts `off`, `info`, `warn` or `error`; `ignore` drops findings that only involve those IDs. CLI flags override the file.
+`rules` accepts `off`, `info`, `warn` or `error`; `ignore` drops findings that only involve those IDs; `checkUpdates` is `notify` / `open` / `off`. CLI flags override the file.
 
 ## OpenCode plugin
 
@@ -186,8 +211,10 @@ The package also exports an OpenCode 2.x plugin:
 
 It registers:
 
-- the `skills_doctor` tool (namespace `skills`) — the agent can audit with `{ directory?, budget? }` and gets a markdown report;
-- the `/skills-doctor` command — asks the agent to run the audit and summarize fixes.
+- the `skills_doctor` tool (namespace `skills`) — the agent can audit with `{ directory?, budget?, html? }` and gets a markdown report;
+- the `/skills-doctor` command — asks the agent to run the audit and summarize fixes;
+- `/skills-report` — asks where to save an HTML report, then writes it;
+- `/skills-upgrade` — checks whether skills-doctor itself has a newer version.
 
 `@opencode/plugin` is an optional peer dependency; OpenCode provides it at runtime.
 

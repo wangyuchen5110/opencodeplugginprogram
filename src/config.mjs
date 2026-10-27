@@ -15,6 +15,10 @@ function normalize(raw) {
     }
   }
   if (Array.isArray(raw?.ignore)) config.ignore = raw.ignore.filter((id) => typeof id === "string")
+  const checkUpdates = raw?.checkUpdates ?? raw?.updateCheck
+  if (checkUpdates === false || checkUpdates === "off") config.checkUpdates = "off"
+  else if (checkUpdates === true) config.checkUpdates = "notify"
+  else if (checkUpdates === "notify" || checkUpdates === "open") config.checkUpdates = checkUpdates
   return config
 }
 

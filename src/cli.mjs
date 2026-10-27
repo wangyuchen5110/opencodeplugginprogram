@@ -10,6 +10,14 @@ import { loadConfig } from "./config.mjs"
 import { startMcpServer } from "./mcp.mjs"
 import { installOpenCode, uninstallOpenCode } from "./install.mjs"
 import { writeHtmlReport, openReport } from "./html.mjs"
+import {
+  checkForUpdate,
+  resolveMode,
+  upgradeCommand,
+  applyUpgrade,
+  openReleasePage,
+  RELEASES_URL,
+} from "./self-update.mjs"
 import { padDisplay } from "./parse.mjs"
 import { detectLang, normalizeLang, translator } from "./i18n.mjs"
 
@@ -66,12 +74,14 @@ function parseArgs(argv) {
     noNpm: false,
     html: null,
     open: false,
+    apply: false,
+    updateCheck: true,
     help: false,
     version: false,
   }
 
   const args = [...argv]
-  const commands = new Set(["check", "scan", "update", "fix", "install", "uninstall", "mcp", "help"])
+  const commands = new Set(["check", "scan", "update", "fix", "install", "uninstall", "upgrade", "mcp", "help"])
   if (args[0] && commands.has(args[0])) {
     options.command = args.shift()
   }
@@ -144,6 +154,12 @@ function parseArgs(argv) {
       }
       case "--open":
         options.open = true
+        break
+      case "--apply":
+        options.apply = true
+        break
+      case "--no-update-check":
+        options.updateCheck = false
         break
       case "-h":
       case "--help":
@@ -446,6 +462,27 @@ function runFix(audit, options, t) {
   return errors.length ? 1 : 0
 }
 
+async function maybeNotifyUpdate({ options, config, t }) {
+  if (!options.updateCheck) return
+  if (options.json || !process.stdout.isTTY || process.env.CI) return
+  const mode = resolveMode(config)
+  if (mode === "off") return
+  const update = await checkForUpdate({ current: pkg.version, mode })
+  if (!update) return
+  console.log("")
+  console.log(
+    dim(
+      t("update.toolAvailable", {
+        latest: update.latest,
+        current: pkg.version,
+        cmd: "npx opencode-skills-doctor@latest check",
+        url: update.url,
+      }),
+    ),
+  )
+  if (mode === "open") openReleasePage({ url: update.url })
+}
+
 export async function main(argv) {
   const options = parseArgs(argv)
 
@@ -517,6 +554,44 @@ export async function main(argv) {
     return
   }
 
+  if (options.command === "upgrade") {
+    const update = await checkForUpdate({ current: pkg.version, force: true })
+    if (options.json) {
+      console.log(
+        JSON.stringify(
+          {
+            current: pkg.version,
+            latest: update?.latest ?? pkg.version,
+            updateAvailable: Boolean(update),
+            url: update?.url ?? RELEASES_URL,
+            command: upgradeCommand(),
+          },
+          null,
+          2,
+        ),
+      )
+    } else {
+      console.log(bold(t("upgrade.title")))
+      console.log(dim(t("upgrade.current", { version: pkg.version })))
+      if (update) {
+        console.log(t("upgrade.available", { latest: update.latest, current: pkg.version }))
+        console.log(dim(t("upgrade.command", { cmd: upgradeCommand() })))
+        console.log(dim(t("upgrade.open", { url: update.url })))
+        if (options.open) openReleasePage({ url: update.url })
+        if (options.apply) {
+          if (applyUpgrade()) console.log(green(t("upgrade.done")))
+          else {
+            console.log(red(t("upgrade.failed", { cmd: upgradeCommand() })))
+            process.exitCode = 1
+          }
+        }
+      } else {
+        console.log(green(t("upgrade.upToDate")))
+      }
+    }
+    return
+  }
+
   if (options.command === "check") {
     const audit = auditSkills({
       cwd,
@@ -545,6 +620,7 @@ export async function main(argv) {
     } else {
       printCheck(audit, result, options, t)
       if (htmlPath) console.log(dim(t("check.htmlSaved", { path: htmlPath })))
+      await maybeNotifyUpdate({ options, config: loaded.config, t })
     }
     process.exitCode = result.exitCode
     return
@@ -571,6 +647,7 @@ export async function main(argv) {
       return
     }
     printScan(discovered, options, managedInfo.managed, t)
+    await maybeNotifyUpdate({ options, config: loaded.config, t })
     return
   }
 
