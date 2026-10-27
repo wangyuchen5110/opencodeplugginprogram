@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.2
+
+- Docs: refresh test counts (50), sample output version, roadmap, and the installer/plugin command lists; no code changes.
+
 ## 0.4.1
 
 - Self-update: `upgrade` command checks npm for a newer skills-doctor; `--apply` runs `npm install -g`, `--open` opens the GitHub release page.

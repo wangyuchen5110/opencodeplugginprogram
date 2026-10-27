@@ -22,7 +22,7 @@ OpenCode skill 的**本地检测器 + 更新器 + 修复器**，并附带 **Open
 | **报告** | 终端、JSON，或自包含 HTML（`--html [file] --open`） |
 | **成本** | CLI 0 token；插件工具定义约 191/步，另有每会话一次预警 |
 | **要求** | Node ≥ 20，零运行时依赖 |
-| **质量** | 49 个测试，ubuntu/macos/windows × Node 20/22/24 CI |
+| **质量** | 50 个测试，ubuntu/macos/windows × Node 20/22/24 CI |
 
 ## 为什么需要它
 
@@ -59,7 +59,7 @@ skills-doctor check
 跑出来大概是这样：
 
 ```text
-skills-doctor 0.3.13
+skills-doctor 0.4.1
   来源: 5 个（存在 2 个）  定义: 29  唯一 ID: 29  会展示: 29  描述预算: ~3074 tokens
 
 [E] token-budget   模型每步要看到的 skill 描述约 3074 tokens，超过预算 1200 的 2 倍
@@ -255,7 +255,7 @@ npx opencode-skills-doctor install
 安装器会自动识别 OpenCode 版本并接好：
 
 - **2.x** —— 在 `opencode.json(c)` 里加 `"plugins": ["opencode-skills-doctor"]`；
-- **1.x** —— 把包装进 `~/.config/opencode`、写本地插件入口、生成 `/skills-doctor` 命令、补 `"type": "module"`；
+- **1.x** —— 把包装进 `~/.config/opencode`、写本地插件入口、生成 `/skills-doctor`、`/skills-report`、`/skills-upgrade` 三个 markdown 命令、补 `"type": "module"`；
 - 改配置前会备份为 `<config>.bak-<timestamp>`。
 
 支持 `--dry-run` 预览、`--config-dir <dir>` 指定配置目录、`--no-npm` 跳过装包。
@@ -265,6 +265,7 @@ npx opencode-skills-doctor install
 - `skills_doctor` 工具（可选 `html` 参数，把报告写到指定路径）；
 - `/skills-doctor` 命令（1.x 是生成的 markdown 命令，2.x 是插件命令）；
 - `/skills-report` 命令（2.x）—— 会先问你要把 HTML 报告存到哪里；
+- `/skills-upgrade` 命令（2.x）—— 检查 skills-doctor 自身是否有新版本；
 - 当 skill 描述预算超标时，系统提示里会注入一次提醒（每个会话最多一次）。
 
 ### 卸载
@@ -467,13 +468,13 @@ token 是启发式估算，1200 是建议预算。可以用 `--budget` 或 `.ski
 
 ## Roadmap
 
-- v0.4：内容层面的建议（哪些 skill 从未被使用）、catalog 签名校验
+- v0.5：CI 治理（baseline 只报新增问题、官方 GitHub Action）、内容层建议（哪些 skill 从未被使用）、catalog 签名校验
 - 后续：V1/Claude skill 兼容迁移报告
 
 ## 开发与贡献
 
 ```powershell
-npm test          # 41 个测试（node test/doctor.test.mjs）
+npm test          # 50 个测试（node test/doctor.test.mjs）
 npm run bench     # 100/500/1000 个 skill 的 lint 耗时
 ```
 

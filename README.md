@@ -22,7 +22,7 @@ Local scanner, linter, fixer, updater and **OpenCode plugin** for agent skills �
 | **Reports** | terminal, JSON, or a self-contained HTML report (`--html [file] --open`) |
 | **Cost** | CLI: 0 tokens. Plugin: ~191 tokens/step for the tool definition, plus a one-time warning per session |
 | **Requirements** | Node ≥ 20, zero runtime dependencies |
-| **Quality** | 49 tests, CI on ubuntu/macos/windows × Node 20/22/24 |
+| **Quality** | 50 tests, CI on ubuntu/macos/windows × Node 20/22/24 |
 
 ## Why
 
@@ -59,7 +59,7 @@ skills-doctor check
 What a run looks like:
 
 ```text
-skills-doctor 0.3.13
+skills-doctor 0.4.1
   sources: 5 (2 exist)  definitions: 29  unique IDs: 29  advertised: 29  description budget: ~3074 tokens
 
 [E] token-budget   Advertised skill descriptions cost about 3074 tokens per model step, over 2x the 1200 budget
@@ -255,7 +255,7 @@ npx opencode-skills-doctor install
 The installer detects your OpenCode version and wires everything up:
 
 - **2.x** — adds `"plugins": ["opencode-skills-doctor"]` to `opencode.json(c)`;
-- **1.x** — installs the package into `~/.config/opencode`, writes the local plugin entry, adds a `/skills-doctor` command, sets `"type": "module"`;
+- **1.x** — installs the package into `~/.config/opencode`, writes the local plugin entry, generates `/skills-doctor`, `/skills-report` and `/skills-upgrade` markdown commands, sets `"type": "module"`;
 - backs up the config file as `<config>.bak-<timestamp>` before editing.
 
 Use `--dry-run` to preview, `--config-dir <dir>` for a custom config location, and `--no-npm` to skip the package install.
@@ -265,6 +265,7 @@ Once installed you get:
 - the `skills_doctor` tool (with an optional `html` argument to write a report to a path you choose);
 - the `/skills-doctor` command (1.x: generated markdown command; 2.x: plugin command);
 - the `/skills-report` command (2.x) that asks where to save the HTML report;
+- the `/skills-upgrade` command (2.x) that checks for a newer skills-doctor;
 - a one-time system-prompt warning when the skill description budget is exceeded.
 
 ### Uninstall
@@ -467,13 +468,13 @@ Executing code is free, but the tool definition is part of the model's context. 
 
 ## Roadmap
 
-- v0.4: content-aware suggestions (which skills are never used), catalog signature verification
+- v0.5: CI governance (baseline that only reports new issues, official GitHub Action), content-aware suggestions (which skills are never used), catalog signature verification
 - Later: V1/Claude skill migration report
 
 ## Development and contributing
 
 ```powershell
-npm test          # 41 tests (node test/doctor.test.mjs)
+npm test          # 50 tests (node test/doctor.test.mjs)
 npm run bench     # lint timing for 100/500/1000 skills
 ```
 
