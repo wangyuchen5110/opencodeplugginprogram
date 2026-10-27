@@ -15,13 +15,14 @@ OpenCode skill 的**本地检测器 + 更新器 + 修复器**，并附带 **Open
 | | |
 |---|---|
 | **是什么** | 审计、修复、更新 coding agent 加载的 skill |
-| **形态** | CLI · OpenCode 插件（1.x / 2.x）· MCP server（Claude Code、Codex、DSH…） |
-| **来源** | `.opencode/skills`、`.claude/skills`、`.agents/skills`、`opencode.json(c)` 配置、HTTP catalog |
-| **能查** | 同 ID 遮蔽、重复、超长描述、超大正文、每步 token 预算、陈旧 skill |
+| **形态** | CLI · OpenCode 插件（1.x / 2.x）· MCP server（Claude Code、Codex、DSH…）· 兼容 Grok CLI |
+| **来源** | `.opencode/skills`、`.claude/skills`、`.agents/skills`、`.grok/skills`、`.cursor/skills`、`opencode.json(c)` 配置、HTTP catalog |
+| **能查** | 同 ID 遮蔽、重复、超长描述、超大正文、每步 token 预算、断链引用、非法 frontmatter、空正文、陈旧 skill |
 | **能修** | 归档遮蔽定义（可逆）、隐藏低频 skill、catalog 同步并检测 drift |
+| **报告** | 终端、JSON，或自包含 HTML（`--html [file] --open`） |
 | **成本** | CLI 0 token；插件工具定义约 191/步，另有每会话一次预警 |
 | **要求** | Node ≥ 20，零运行时依赖 |
-| **质量** | 41 个测试，ubuntu/macos/windows × Node 20/22/24 CI |
+| **质量** | 49 个测试，ubuntu/macos/windows × Node 20/22/24 CI |
 
 ## 为什么需要它
 
@@ -86,7 +87,20 @@ skills-doctor check
 skills-doctor check --json
 skills-doctor check --budget 800 --strict    # CI 用
 skills-doctor check --root .\some-project --no-global
+skills-doctor check --html report.html       # 自包含 HTML 报告
+skills-doctor check --html report.html --open
 ```
+
+### HTML 报告
+
+`--html [file]` 生成单个自包含 HTML 文件（无外部资源）：
+
+- 摘要卡片 + 上下文预算条；
+- 可按严重级别和文本过滤的 findings；
+- skill 表格：来源、token 成本、描述预览、文件路径；
+- 只写 `--html` 不带路径时默认 `./skills-report.html`；`--open` 自动打开浏览器。
+
+插件和 MCP 工具同样接受 `html` 参数，所以可以让 agent 先问你要存哪里——例如：*"把报告存到 D:\reports\skills.html"*。
 
 ### `scan`
 
@@ -221,8 +235,9 @@ npx opencode-skills-doctor install
 
 装好后你会得到：
 
-- `skills_doctor` 工具；
+- `skills_doctor` 工具（可选 `html` 参数，把报告写到指定路径）；
 - `/skills-doctor` 命令（1.x 是生成的 markdown 命令，2.x 是插件命令）；
+- `/skills-report` 命令（2.x）—— 会先问你要把 HTML 报告存到哪里；
 - 当 skill 描述预算超标时，系统提示里会注入一次提醒（每个会话最多一次）。
 
 ### 卸载
@@ -305,6 +320,17 @@ Windows 上如果 stdio 起不来 `npx`，改成 `command: cmd`、`args: ["/c", 
 
 `check` 会读 lockfile，报告 drift（`managed-drift`）、文件缺失（`managed-missing`）和未知 lock 版本（`lock-version-unsupported`）；再跑一次 `update` 会重下被改坏的文件。
 
+### Grok CLI
+
+Grok 从 `.grok/skills`（项目、仓库、`~/.grok/skills`）以及 `.claude/skills`、`.cursor/skills`、`.agents/skills` 发现 skill。skills-doctor 扫描的正是同一批位置：
+
+```powershell
+skills-doctor check --root .        # 覆盖当前项目的 Grok skill
+skills-doctor check --root $HOME    # 覆盖 ~/.grok/skills 等用户级 skill
+```
+
+不需要额外安装——Grok 原生加载 `SKILL.md`。如果该 Grok 版本支持 MCP，还可以把上面的 MCP server 接进去，让模型自己调用 `skills_doctor`。
+
 ## 检测规则
 
 | 规则 | 级别 | 含义 |
@@ -321,6 +347,10 @@ Windows 上如果 stdio 起不来 `npx`，改成 `command: cmd`、`args: ["/c", 
 | `invalid-id` | info | 不符合 kebab-case 规范 |
 | `hidden-skill` | info | 被 `opencode/autoinvoke: false` 或 `disable-model-invocation: true` 隐藏 |
 | `stale-skill` | info | `--stale-days` 指定的天数内没更新 |
+| `broken-reference` | warn | 引用的 `references/`、`scripts/`、`assets/`、`templates/`、`examples/` 文件不存在 |
+| `reference-outside-skill` | info | 被引用的文件在 skill 目录之外（影响可移植性） |
+| `invalid-frontmatter` | warn | `---` 未闭合，或 name/description 非字符串 / metadata 非对象 |
+| `empty-body` | info | 正文几乎是空的，skill 没有实际指令 |
 | `managed-drift` | warn | 由 update 安装的文件在更新后被改过 |
 | `managed-missing` | warn | lock 里记录了，但本地文件没了 |
 | `managed-unsafe` | warn | lock 里有路径穿越等不安全路径 |
@@ -340,9 +370,13 @@ Windows 上如果 stdio 起不来 `npx`，改成 `command: cmd`、`args: ["/c", 
 2. 项目 `.claude/skills`（项目根 → 当前目录逐级）
 3. `~/.agents/skills`
 4. 项目 `.agents/skills`
-5. `~/.config/opencode/skills`
-6. 项目 `.opencode/skills`
-7. `opencode.json(c)` 的 `skills` 数组（2.x）或 `skills.paths`（1.x）；相对路径按当前工作目录解析，支持 `~/`、绝对路径、HTTP catalog
+5. `~/.cursor/skills`
+6. 项目 `.cursor/skills`
+7. `~/.grok/skills`
+8. 项目 `.grok/skills`
+9. `~/.config/opencode/skills`
+10. 项目 `.opencode/skills`
+11. `opencode.json(c)` 的 `skills` 数组（2.x）或 `skills.paths`（1.x）；相对路径按当前工作目录解析，支持 `~/`、绝对路径、HTTP catalog
 
 ## JSON 输出
 

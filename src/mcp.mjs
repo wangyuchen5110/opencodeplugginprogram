@@ -1,4 +1,5 @@
 import { auditSkills, formatMarkdown } from "./audit.mjs"
+import { writeHtmlReport } from "./html.mjs"
 import { normalizeLang, detectLang } from "./i18n.mjs"
 
 export const PROTOCOL_VERSION = "2025-06-18"
@@ -29,6 +30,10 @@ export function toolDefinition() {
         global: {
           type: "boolean",
           description: "Include global skill directories such as ~/.config/opencode and ~/.claude (default true)",
+        },
+        html: {
+          type: "string",
+          description: "Optional path; when set, a self-contained HTML report is written there and the path is returned",
         },
       },
       additionalProperties: false,
@@ -86,7 +91,12 @@ export async function handleMessage(message, { version = "0.0.0" } = {}) {
         const lang = normalizeLang(args.lang) ?? detectLang()
 
         const audit = auditSkills({ cwd: directory, budget, lang, includeGlobal: args.global !== false })
-        return ok(id, { content: [{ type: "text", text: formatMarkdown(audit) }] })
+        let text = formatMarkdown(audit)
+        if (typeof args.html === "string" && args.html.trim()) {
+          const file = writeHtmlReport(audit, args.html.trim(), { title: "skills-doctor report" })
+          text += `\n\nHTML report written to \`${file}\``
+        }
+        return ok(id, { content: [{ type: "text", text }] })
       }
 
       default:

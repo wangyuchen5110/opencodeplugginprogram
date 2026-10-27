@@ -12,6 +12,8 @@ import { lint, resolveWinners, summarize } from "../src/lint.mjs"
 import { updateCatalogs, validateCatalogEntry } from "../src/catalog.mjs"
 import { planFixes, applyFixes, hideSkills } from "../src/fix.mjs"
 import { auditSkills, formatMarkdown } from "../src/audit.mjs"
+import { extractReferences } from "../src/refs.mjs"
+import { renderHtml, writeHtmlReport } from "../src/html.mjs"
 import { handleMessage, toolDefinition, startMcpServer, PROTOCOL_VERSION } from "../src/mcp.mjs"
 import { installOpenCode, uninstallOpenCode } from "../src/install.mjs"
 import { budgetWarning, resetWarningState } from "../src/warning.mjs"
@@ -314,6 +316,113 @@ test("discovery: 兼容 OpenCode 1.x 的 skills.paths 写法", () => {
   const skillIds = found.skills.map((s) => s.id)
   assert.ok(skillIds.includes("legacy-skill"))
   assert.ok(found.sources.some((s) => s.kind === "config-path" && s.dir === external))
+})
+
+test("refs: 提取相对引用，跳过 URL/绝对路径/glob", () => {
+  const refs = extractReferences(
+    "See [policy](references/policy.md), run `scripts/run.sh`, ignore https://x.dev/a.md, /abs/path.md, ~/home.md and **/*.md",
+  )
+  assert.deepEqual(refs.sort(), ["references/policy.md", "scripts/run.sh"])
+})
+
+test("lint: 断链引用、非法 frontmatter、空正文", () => {
+  const home = tmpdir()
+  const project = tmpdir()
+  fs.mkdirSync(path.join(project, ".git"))
+
+  const skillDir = path.join(project, ".opencode", "skills", "refs")
+  write(
+    path.join(skillDir, "SKILL.md"),
+    ["---", "name: Refs", "description: uses references", "---", "Read `references/missing.md` and `scripts/ok.sh`."].join("\n"),
+  )
+  write(path.join(skillDir, "scripts", "ok.sh"), "echo ok")
+
+  write(
+    path.join(project, ".opencode", "skills", "broken", "SKILL.md"),
+    ["---", "name: Broken", "description: broken fm", "no closing fence"].join("\n"),
+  )
+  write(path.join(project, ".opencode", "skills", "empty", "SKILL.md"), "---\ndescription: empty body\n---\n")
+
+  const found = scanAll(discoverSources({ cwd: project, home }))
+  const findings = lint(found.skills)
+  const rules = findings.map((finding) => finding.rule)
+
+  assert.ok(rules.includes("broken-reference"))
+  const broken = findings.find((finding) => finding.rule === "broken-reference")
+  assert.match(broken.message, /references\/missing\.md/)
+  assert.ok(!broken.message.includes("scripts/ok.sh"))
+
+  assert.ok(rules.includes("invalid-frontmatter"))
+  assert.ok(rules.includes("empty-body"))
+})
+
+test("html: 渲染自包含报告并转义内容", () => {
+  const project = tmpdir()
+  fs.mkdirSync(path.join(project, ".git"))
+  skill(path.join(project, ".opencode", "skills"), "safe", 'description: "`<script>alert(1)</script>` long description"')
+
+  const audit = auditSkills({ cwd: project, includeGlobal: false, lang: "en" })
+  const html = renderHtml(audit, { title: "test report" })
+
+  assert.match(html, /^<!doctype html>/)
+  assert.match(html, /test report/)
+  assert.match(html, /Context budget/)
+  assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/)
+  assert.ok(!html.includes("<script>alert(1)</script>"))
+})
+
+test("CLI: --html 写出报告并在 JSON 里返回路径", async () => {
+  const project = tmpdir()
+  fs.mkdirSync(path.join(project, ".git"))
+  skill(path.join(project, ".opencode", "skills"), "alpha", "description: alpha skill")
+  const out = path.join(tmpdir(), "report", "skills.html")
+
+  await runCli(["check", "--root", project, "--no-global", "--html", out])
+  assert.ok(fs.existsSync(out))
+  const html = fs.readFileSync(out, "utf8")
+  assert.match(html, /alpha/)
+
+  const json = await runCli([
+    "check",
+    "--root",
+    project,
+    "--no-global",
+    "--json",
+    "--html",
+    path.join(tmpdir(), "r2.html"),
+  ])
+  const parsed = JSON.parse(json.output)
+  assert.ok(parsed.html.endsWith(".html"))
+})
+
+test("MCP: tools/call 支持 html 参数落盘", async () => {
+  const project = tmpdir()
+  fs.mkdirSync(path.join(project, ".git"))
+  skill(path.join(project, ".opencode", "skills"), "alpha", "description: alpha skill")
+  const out = path.join(tmpdir(), "mcp-report.html")
+
+  const response = await handleMessage({
+    jsonrpc: "2.0",
+    id: 9,
+    method: "tools/call",
+    params: { name: "skills_doctor", arguments: { directory: project, global: false, html: out } },
+  })
+  assert.ok(fs.existsSync(out))
+  assert.match(response.result.content[0].text, /HTML report written to/)
+})
+
+test("discovery: 扫描 Grok 与 Cursor 的 skill 目录", () => {
+  const home = tmpdir()
+  const project = tmpdir()
+  fs.mkdirSync(path.join(project, ".git"))
+  skill(path.join(home, ".grok", "skills"), "grok-user")
+  skill(path.join(project, ".grok", "skills"), "grok-project")
+  skill(path.join(home, ".cursor", "skills"), "cursor-user")
+  skill(path.join(project, ".cursor", "skills"), "cursor-project")
+
+  const found = scanAll(discoverSources({ cwd: project, home }))
+  const ids = found.skills.map((item) => item.id).sort()
+  assert.deepEqual(ids, ["cursor-project", "cursor-user", "grok-project", "grok-user"])
 })
 
 test("工具函数: findProjectRoot / pathChain", () => {
@@ -703,6 +812,7 @@ test("install: 1.x 写插件入口、命令、配置与 package.json，且幂等
   assert.equal(first.errors.length, 0)
   assert.ok(fs.existsSync(path.join(dir, "plugins", "skills-doctor.js")))
   assert.ok(fs.existsSync(path.join(dir, "command", "skills-doctor.md")))
+  assert.ok(fs.existsSync(path.join(dir, "command", "skills-report.md")))
 
   const cfg = JSON.parse(fs.readFileSync(path.join(dir, "opencode.json"), "utf8"))
   assert.ok(Array.isArray(cfg.plugin))
@@ -748,6 +858,7 @@ test("uninstall: 1.x 移除条目、删除生成文件；2.x 移除 plugins", ()
   assert.equal(result1.errors.length, 0)
   assert.ok(!fs.existsSync(path.join(dir1, "plugins", "skills-doctor.js")))
   assert.ok(!fs.existsSync(path.join(dir1, "command", "skills-doctor.md")))
+  assert.ok(!fs.existsSync(path.join(dir1, "command", "skills-report.md")))
   const cfg1 = JSON.parse(fs.readFileSync(path.join(dir1, "opencode.json"), "utf8"))
   assert.ok(!(cfg1.plugin ?? []).some((entry) => entry.endsWith("skills-doctor.js")))
 

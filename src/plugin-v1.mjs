@@ -1,5 +1,6 @@
 import { tool } from "@opencode-ai/plugin"
 import { auditSkills, formatMarkdown } from "./audit.mjs"
+import { writeHtmlReport } from "./html.mjs"
 import { budgetWarning } from "./warning.mjs"
 
 const z = tool.schema
@@ -18,11 +19,17 @@ export const SkillsDoctorPlugin = async ({ directory }) => ({
       args: z.object({
         directory: z.string().optional().describe("Directory to audit (defaults to the current project)"),
         budget: z.number().optional().describe("Description token budget (default 1200)"),
+        html: z.string().optional().describe("Optional path; when set, a self-contained HTML report is written there"),
       }),
       execute: async (args) => {
         const cwd = args.directory || directory || process.cwd()
         const audit = auditSkills({ cwd, budget: typeof args.budget === "number" ? args.budget : null, lang: "en" })
-        return formatMarkdown(audit)
+        let markdown = formatMarkdown(audit)
+        if (typeof args.html === "string" && args.html.trim()) {
+          const file = writeHtmlReport(audit, args.html.trim(), { title: "skills-doctor report" })
+          markdown += `\n\nHTML report written to \`${file}\``
+        }
+        return markdown
       },
     }),
   },

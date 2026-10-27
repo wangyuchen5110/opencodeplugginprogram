@@ -15,13 +15,14 @@ Local scanner, linter, fixer, updater and **OpenCode plugin** for agent skills �
 | | |
 |---|---|
 | **What it is** | Audit, fix and update the skills your coding agent loads |
-| **Interfaces** | CLI · OpenCode plugin (1.x / 2.x) · MCP server (Claude Code, Codex, DSH, …) |
-| **Skill sources** | `.opencode/skills`, `.claude/skills`, `.agents/skills`, `opencode.json(c)` entries, HTTP catalogs |
-| **What it finds** | shadowed IDs, duplicates, long descriptions, oversized bodies, per-step token budget, stale skills |
+| **Interfaces** | CLI · OpenCode plugin (1.x / 2.x) · MCP server (Claude Code, Codex, DSH, …) · Grok CLI compatible |
+| **Skill sources** | `.opencode/skills`, `.claude/skills`, `.agents/skills`, `.grok/skills`, `.cursor/skills`, `opencode.json(c)` entries, HTTP catalogs |
+| **What it finds** | shadowed IDs, duplicates, long descriptions, oversized bodies, per-step token budget, broken file references, invalid frontmatter, empty bodies, stale skills |
 | **What it fixes** | archives shadowed definitions (reversible), hides low-frequency skills, syncs catalogs with drift detection |
+| **Reports** | terminal, JSON, or a self-contained HTML report (`--html [file] --open`) |
 | **Cost** | CLI: 0 tokens. Plugin: ~191 tokens/step for the tool definition, plus a one-time warning per session |
 | **Requirements** | Node ≥ 20, zero runtime dependencies |
-| **Quality** | 41 tests, CI on ubuntu/macos/windows × Node 20/22/24 |
+| **Quality** | 49 tests, CI on ubuntu/macos/windows × Node 20/22/24 |
 
 ## Why
 
@@ -86,7 +87,20 @@ skills-doctor check
 skills-doctor check --json
 skills-doctor check --budget 800 --strict    # for CI
 skills-doctor check --root .\some-project --no-global
+skills-doctor check --html report.html       # self-contained HTML report
+skills-doctor check --html report.html --open
 ```
+
+### HTML report
+
+`--html [file]` writes a single self-contained HTML file (no external assets):
+
+- summary cards and a context-budget bar;
+- findings filterable by severity and text;
+- a skill table with scope, token cost, description preview and file path;
+- default path `./skills-report.html` when `--html` is given without a value; `--open` launches the browser.
+
+The plugin and MCP tool accept the same thing as an `html` argument, so the agent can ask you where to save it — for example: *"save the report to D:\reports\skills.html"*.
 
 ### `scan`
 
@@ -221,8 +235,9 @@ Use `--dry-run` to preview, `--config-dir <dir>` for a custom config location, a
 
 Once installed you get:
 
-- the `skills_doctor` tool;
+- the `skills_doctor` tool (with an optional `html` argument to write a report to a path you choose);
 - the `/skills-doctor` command (1.x: generated markdown command; 2.x: plugin command);
+- the `/skills-report` command (2.x) that asks where to save the HTML report;
 - a one-time system-prompt warning when the skill description budget is exceeded.
 
 ### Uninstall
@@ -305,6 +320,17 @@ On Windows, if the stdio spawn cannot resolve `npx`, use `command: cmd` and `arg
 
 `check` reads the lockfile and reports drift (`managed-drift`), missing files (`managed-missing`) and unknown lock versions (`lock-version-unsupported`). Re-running `update` re-downloads drifted files.
 
+### Grok CLI
+
+Grok discovers skills from `.grok/skills` (project, repo and `~/.grok/skills`), plus `.claude/skills`, `.cursor/skills` and `.agents/skills`. `skills-doctor` scans exactly the same locations, so:
+
+```powershell
+skills-doctor check --root .        # covers your Grok project skills
+skills-doctor check --root $HOME    # covers ~/.grok/skills and other user-level skills
+```
+
+No install step is needed — Grok loads `SKILL.md` packages natively. If your Grok build has MCP enabled, you can additionally register the MCP server above to let the model call `skills_doctor` itself.
+
 ## Rules
 
 | Rule | Level | Meaning |
@@ -321,6 +347,10 @@ On Windows, if the stdio spawn cannot resolve `npx`, use `command: cmd` and `arg
 | `invalid-id` | info | ID is not kebab-case |
 | `hidden-skill` | info | Hidden via `opencode/autoinvoke: false` or `disable-model-invocation: true` |
 | `stale-skill` | info | Not updated within `--stale-days` |
+| `broken-reference` | warn | `references/`, `scripts/`, `assets/`, `templates/` or `examples/` path does not exist |
+| `reference-outside-skill` | info | A referenced file lives outside the skill directory (hurts portability) |
+| `invalid-frontmatter` | warn | Unclosed `---` fence, or non-string name/description / non-object metadata |
+| `empty-body` | info | Body is nearly empty, so the skill carries no instructions |
 | `managed-drift` | warn | A file installed by `update` was modified afterwards |
 | `managed-missing` | warn | Recorded in the lock, but the local file is gone |
 | `managed-unsafe` | warn | Path traversal or another unsafe path in the lock |
@@ -340,9 +370,13 @@ On Windows, if the stdio spawn cannot resolve `npx`, use `command: cmd` and `arg
 2. project `.claude/skills` (from the project root up to the current directory)
 3. `~/.agents/skills`
 4. project `.agents/skills`
-5. `~/.config/opencode/skills`
-6. project `.opencode/skills`
-7. the `skills` array in `opencode.json(c)` (2.x) or `skills.paths` (1.x); relative paths resolve from the working directory; supports `~/`, absolute paths and HTTP catalogs
+5. `~/.cursor/skills`
+6. project `.cursor/skills`
+7. `~/.grok/skills`
+8. project `.grok/skills`
+9. `~/.config/opencode/skills`
+10. project `.opencode/skills`
+11. the `skills` array in `opencode.json(c)` (2.x) or `skills.paths` (1.x); relative paths resolve from the working directory; supports `~/`, absolute paths and HTTP catalogs
 
 ## JSON output
 

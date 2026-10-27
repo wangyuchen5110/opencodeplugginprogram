@@ -110,14 +110,19 @@ function isUnder(parent, child) {
 }
 
 /**
- * 按官方文档的注册顺序返回 skill 来源（顺序即优先级，越后越高）：
+ * 返回 skill 来源（顺序即优先级，越后越高）。这是多个 agent 的并集，
+ * 不同 agent 的真实优先级可能不同（Grok 的 local 最高，OpenCode 的 config 最高）：
  *  1. ~/.claude/skills
  *  2. 项目 .claude/skills（远端 → cwd）
  *  3. ~/.agents/skills
  *  4. 项目 .agents/skills（远端 → cwd）
- *  5. ~/.config/opencode/skills
- *  6. 项目 .opencode/skills（项目根 → cwd）
- *  7. opencode.json(c) 里的 skills 数组
+ *  5. ~/.cursor/skills
+ *  6. 项目 .cursor/skills
+ *  7. ~/.grok/skills
+ *  8. 项目 .grok/skills
+ *  9. ~/.config/opencode/skills
+ * 10. 项目 .opencode/skills（项目根 → cwd）
+ * 11. opencode.json(c) 里的 skills 数组 / skills.paths
  */
 export function discoverSources({ cwd = process.cwd(), home = os.homedir(), includeGlobal = true } = {}) {
   const projectRoot = findProjectRoot(cwd) ?? path.resolve(cwd)
@@ -139,6 +144,12 @@ export function discoverSources({ cwd = process.cwd(), home = os.homedir(), incl
 
   if (includeGlobal) addSource("agents-global", "global", path.join(home, ".agents", "skills"))
   for (const dir of projectChain) addSource("agents-project", "project", path.join(dir, ".agents", "skills"))
+
+  if (includeGlobal) addSource("cursor-global", "global", path.join(home, ".cursor", "skills"))
+  for (const dir of projectChain) addSource("cursor-project", "project", path.join(dir, ".cursor", "skills"))
+
+  if (includeGlobal) addSource("grok-global", "global", path.join(home, ".grok", "skills"))
+  for (const dir of projectChain) addSource("grok-project", "project", path.join(dir, ".grok", "skills"))
 
   if (includeGlobal) addSource("opencode-global", "global", path.join(home, ".config", "opencode", "skills"))
   for (const dir of projectChain) addSource("opencode-project", "project", path.join(dir, ".opencode", "skills"))
@@ -246,7 +257,14 @@ function buildSkill({ id, file, source, form }) {
   } catch {
     text = ""
   }
-  const { data, body } = parseFrontmatter(text)
+  const { data, body, hasFrontmatter } = parseFrontmatter(text)
+  const startsWithFence = /^---\r?\n/.test(text)
+  const frontmatterBroken = startsWithFence && !hasFrontmatter
+  const frontmatterInvalid =
+    hasFrontmatter &&
+    ((data.name !== undefined && typeof data.name !== "string") ||
+      (data.description !== undefined && typeof data.description !== "string") ||
+      (data.metadata !== undefined && (typeof data.metadata !== "object" || data.metadata === null)))
   const autoinvoke = data?.metadata?.["opencode/autoinvoke"]
   const disabled = data?.["disable-model-invocation"]
   const description = typeof data.description === "string" ? data.description.trim() : ""
@@ -269,7 +287,11 @@ function buildSkill({ id, file, source, form }) {
     disabled,
     hidden,
     advertised: Boolean(description) && !hidden,
+    hasFrontmatter,
+    frontmatterBroken,
+    frontmatterInvalid,
     body,
+    bodyChars: body.trim().length,
     bodyTokens: estimateTokens(body),
     bytes: Buffer.byteLength(text),
     descriptionTokens: estimateTokens(description),

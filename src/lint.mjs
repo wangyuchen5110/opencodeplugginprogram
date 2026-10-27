@@ -1,4 +1,7 @@
+import fs from "node:fs"
+import path from "node:path"
 import { estimateTokens } from "./parse.mjs"
+import { extractReferences } from "./refs.mjs"
 import { translator } from "./i18n.mjs"
 
 export const SEVERITY_ORDER = { error: 0, warn: 1, info: 2 }
@@ -115,6 +118,49 @@ export function lint(skills, options = {}) {
 
     if (!ID_PATTERN.test(skill.id) || skill.id.length > 64) {
       add("invalid-id", "info", t("lint.invalidId", { id: skill.id }), { skills: [skill.id] })
+    }
+
+    if (skill.frontmatterBroken) {
+      add("invalid-frontmatter", "warn", t("lint.invalidFrontmatter", { id: skill.id, detail: t("lint.frontmatterUnclosed") }), {
+        skills: [skill.id],
+      })
+    } else if (skill.frontmatterInvalid) {
+      add("invalid-frontmatter", "warn", t("lint.invalidFrontmatter", { id: skill.id, detail: t("lint.frontmatterTypes") }), {
+        skills: [skill.id],
+      })
+    }
+
+    if (skill.bodyChars < 20) {
+      add("empty-body", "info", t("lint.emptyBody", { id: skill.id, chars: skill.bodyChars }), { skills: [skill.id] })
+    }
+
+    // 只审计「skill 本地资源目录」的引用，避免把 npm 包名、项目相对路径误报成断链
+    const refs = extractReferences(skill.body).filter((ref) => {
+      if (ref.startsWith("@") || ref.endsWith("/")) return false
+      return /^(?:\.\/)?(?:references|scripts|assets|templates|examples)\//.test(ref)
+    })
+    if (refs.length) {
+      const base = path.resolve(path.dirname(skill.file))
+      const missingRefs = []
+      const outsideRefs = []
+      for (const ref of refs) {
+        const target = path.resolve(base, ref)
+        if (target !== base && !target.startsWith(base + path.sep)) outsideRefs.push(ref)
+        if (!fs.existsSync(target)) missingRefs.push(ref)
+      }
+      if (missingRefs.length) {
+        add("broken-reference", "warn", t("lint.brokenReference", { id: skill.id, refs: missingRefs.slice(0, 5).join(", ") }), {
+          skills: [skill.id],
+        })
+      }
+      if (outsideRefs.length) {
+        add(
+          "reference-outside-skill",
+          "info",
+          t("lint.referenceOutside", { id: skill.id, refs: outsideRefs.slice(0, 5).join(", ") }),
+          { skills: [skill.id] },
+        )
+      }
     }
 
     if (skill.bodyTokens > 4000) {

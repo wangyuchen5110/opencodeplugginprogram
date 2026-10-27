@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0
+
+- Rules: `broken-reference` (missing `references/`, `scripts/`, `assets/`, `templates/`, `examples/` files), `reference-outside-skill`, `invalid-frontmatter` (unclosed fence / wrong types), `empty-body`.
+- Reports: `check --html [file]` writes a self-contained HTML report (summary cards, budget bar, filterable findings, skill table); `--open` launches it.
+- Plugin/MCP: `skills_doctor` tool accepts `html` (target path); OpenCode 1.x gets a generated `/skills-report` command, 2.x gets a `skills-report` command.
+- Compatibility: scans Grok CLI skill locations (`.grok/skills`, `~/.grok/skills`) and Cursor locations (`.cursor/skills`, `~/.cursor/skills`).
+- Tests: 49.
+
 ## 0.3.15
 
 - Uninstall now also recognizes a hand-written re-export (`export { SkillsDoctorPlugin } from "opencode-skills-doctor/v1"`) as a generated plugin entry, so `uninstall` cleans it up.

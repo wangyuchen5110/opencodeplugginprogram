@@ -1,5 +1,6 @@
 import { Plugin } from "@opencode/plugin"
 import { auditSkills, formatMarkdown } from "./audit.mjs"
+import { writeHtmlReport } from "./html.mjs"
 import { budgetWarning } from "./warning.mjs"
 
 /**
@@ -22,6 +23,10 @@ export default Plugin.define({
           properties: {
             directory: { type: "string", description: "Directory to audit (defaults to the current project)" },
             budget: { type: "number", description: "Description token budget (default 1200)" },
+            html: {
+              type: "string",
+              description: "Optional path; when set, a self-contained HTML report is written there",
+            },
           },
           additionalProperties: false,
         },
@@ -30,7 +35,12 @@ export default Plugin.define({
           const directory = (input && typeof input.directory === "string" && input.directory) || ctx.location.directory
           const budget = input && typeof input.budget === "number" ? input.budget : null
           const audit = auditSkills({ cwd: directory, budget, lang: "en" })
-          return { content: formatMarkdown(audit) }
+          let markdown = formatMarkdown(audit)
+          if (input && typeof input.html === "string" && input.html.trim()) {
+            const file = writeHtmlReport(audit, input.html.trim(), { title: "skills-doctor report" })
+            markdown += `\n\nHTML report written to \`${file}\``
+          }
+          return { content: markdown }
         },
       })
     })
@@ -44,6 +54,18 @@ export default Plugin.define({
             ...prompt,
             sessionID,
             text: "Run a skills audit with the skills_doctor tool, then summarize the top issues and propose concrete fixes.",
+            delivery,
+          })
+        },
+      })
+      editor.add({
+        name: "skills-report",
+        description: "Write a self-contained HTML skills report to a path you choose",
+        execute: async ({ sessionID, prompt, delivery }) => {
+          await ctx.session.prompt({
+            ...prompt,
+            sessionID,
+            text: "Ask me where to save the HTML report (a file path, default ./skills-report.html), then call the skills_doctor tool with the html argument set to that path and tell me where it was written.",
             delivery,
           })
         },

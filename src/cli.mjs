@@ -9,6 +9,7 @@ import { auditSkills } from "./audit.mjs"
 import { loadConfig } from "./config.mjs"
 import { startMcpServer } from "./mcp.mjs"
 import { installOpenCode, uninstallOpenCode } from "./install.mjs"
+import { writeHtmlReport, openReport } from "./html.mjs"
 import { padDisplay } from "./parse.mjs"
 import { detectLang, normalizeLang, translator } from "./i18n.mjs"
 
@@ -38,6 +39,10 @@ const HINT_KEYS = {
   "invalid-id": "hint.invalid-id",
   "hidden-skill": "hint.hidden-skill",
   "stale-skill": "hint.stale-skill",
+  "invalid-frontmatter": "hint.invalid-frontmatter",
+  "empty-body": "hint.empty-body",
+  "broken-reference": "hint.broken-reference",
+  "reference-outside-skill": "hint.reference-outside-skill",
 }
 
 function parseArgs(argv) {
@@ -59,6 +64,8 @@ function parseArgs(argv) {
     prune: false,
     configDir: null,
     noNpm: false,
+    html: null,
+    open: false,
     help: false,
     version: false,
   }
@@ -124,6 +131,19 @@ function parseArgs(argv) {
         break
       case "--no-npm":
         options.noNpm = true
+        break
+      case "--html": {
+        const next = args[i + 1]
+        if (next && !next.startsWith("-")) {
+          options.html = path.resolve(next)
+          i++
+        } else {
+          options.html = path.resolve("skills-report.html")
+        }
+        break
+      }
+      case "--open":
+        options.open = true
         break
       case "-h":
       case "--help":
@@ -506,21 +526,27 @@ export async function main(argv) {
       budget: options.budget,
       staleDays: options.staleDays,
     })
+    const result = buildCheckResult(audit, options)
+
+    let htmlPath = null
+    if (options.html) {
+      htmlPath = writeHtmlReport(audit, options.html)
+      if (options.open) openReport(htmlPath)
+    }
+
     if (options.json) {
       console.log(
         JSON.stringify(
-          { ...buildCheckResult(audit, options), skills: serializeSkills(audit.skills, audit.managed) },
+          { ...result, html: htmlPath, skills: serializeSkills(audit.skills, audit.managed) },
           null,
           2,
         ),
       )
     } else {
-      const result = buildCheckResult(audit, options)
       printCheck(audit, result, options, t)
-      process.exitCode = result.exitCode
-      return
+      if (htmlPath) console.log(dim(t("check.htmlSaved", { path: htmlPath })))
     }
-    process.exitCode = buildCheckResult(audit, options).exitCode
+    process.exitCode = result.exitCode
     return
   }
 

@@ -29,6 +29,8 @@ Options:
   --into <dir>         update: output directory (default: .opencode/skills)
   --check-only         update: only report available updates
   --prune              update: delete skills that disappeared from the catalog
+  --html [file]        check: write a self-contained HTML report (default: skills-report.html)
+  --open               check: open the HTML report after writing it
   --config-dir <dir>   install/uninstall: OpenCode config directory (default: ~/.config/opencode)
   --no-npm             install/uninstall: do not run npm (1.x)
   -h, --help           show this help
@@ -47,6 +49,7 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
     "check.configError": "  ! cannot parse config: {path} ({error})",
     "check.missingPath": "  ! path in config does not exist: {path}",
     "check.none": "No problems found.",
+    "check.htmlSaved": "  HTML report: {path}",
     "check.summary": "{errors} error, {warnings} warn, {infos} info",
     "check.strict": " (--strict: warnings also fail)",
     "check.hints": "Hints:",
@@ -121,6 +124,10 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
     "hint.invalid-id": "Use lowercase kebab-case and keep it aligned with the directory name.",
     "hint.hidden-skill": "Confirm the skill is intentionally hidden; hidden skills are not advertised.",
     "hint.stale-skill": "Confirm the content is still current, or delete it.",
+    "hint.invalid-frontmatter": "Fix the YAML frontmatter: closing ---, string name/description, object metadata.",
+    "hint.empty-body": "Add real instructions to the body, or delete the skill.",
+    "hint.broken-reference": "Fix the path or remove the reference; missing files silently break the skill.",
+    "hint.reference-outside-skill": "Keep referenced files inside the skill directory so the skill stays portable.",
 
     "lint.shadowed":
       'ID "{id}" is defined {count} times; the effective definition is {winner}; the other {losers} are shadowed (dead weight, easy to edit the wrong file)',
@@ -140,6 +147,12 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
     "lint.tokenBudgetError":
       "Advertised skill descriptions cost about {tokens} tokens per model step, over 2x the {budget} budget",
     "lint.tooManySkills": "{count} skills are advertised to the model (recommended ≤ 60)",
+    "lint.invalidFrontmatter": '"{id}" has malformed frontmatter: {detail}',
+    "lint.frontmatterUnclosed": "missing closing ---",
+    "lint.frontmatterTypes": "name/description/metadata have wrong types",
+    "lint.emptyBody": '"{id}" body is nearly empty ({chars} chars)',
+    "lint.brokenReference": '"{id}" references missing files: {refs}',
+    "lint.referenceOutside": '"{id}" references files outside its skill directory: {refs}',
 
     "managed.lockUnsupported":
       "Lock version {version} is newer than the supported {supported}; parsing in compatibility mode (unknown fields ignored)",
@@ -188,6 +201,8 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
   --into <dir>        update 的落盘目录（默认 .opencode/skills）
   --check-only        update 只报告可用更新，不下载
   --prune             update: 删除 catalog 中已移除的 skill
+  --html [file]       check: 生成自包含 HTML 报告（默认 skills-report.html）
+  --open              check: 写完报告后用浏览器打开
   --config-dir <dir>  install/uninstall: OpenCode 配置目录（默认 ~/.config/opencode）
   --no-npm            install/uninstall: 不执行 npm（1.x）
   -h, --help          帮助
@@ -206,6 +221,7 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
     "check.configError": "  ! 配置文件无法解析: {path}（{error}）",
     "check.missingPath": "  ! 配置里引用的路径不存在: {path}",
     "check.none": "没有发现问题。",
+    "check.htmlSaved": "  HTML 报告: {path}",
     "check.summary": "{errors} error, {warnings} warn, {infos} info",
     "check.strict": "（--strict：warning 也会非 0 退出）",
     "check.hints": "建议:",
@@ -278,6 +294,10 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
     "hint.invalid-id": "改成小写 kebab-case，并与目录名对齐。",
     "hint.hidden-skill": "确认是刻意隐藏；隐藏的 skill 不会出现在模型列表里。",
     "hint.stale-skill": "确认内容没过期，或删掉。",
+    "hint.invalid-frontmatter": "修好 frontmatter：闭合的 ---、字符串形式的 name/description、对象形式的 metadata。",
+    "hint.empty-body": "给正文补上真正的说明，否则删掉这个 skill。",
+    "hint.broken-reference": "修正路径或删掉引用；缺失的文件会让 skill 静默失效。",
+    "hint.reference-outside-skill": "把被引用的文件放进 skill 目录，保证 skill 可移植。",
 
     "lint.shadowed":
       'ID "{id}" 有 {count} 处定义，实际生效的是 {winner}；其余 {losers} 处被遮蔽（白占体积、容易改错文件）',
@@ -293,6 +313,12 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
     "lint.tokenBudget": "模型每步要看到的 skill 描述约 {tokens} tokens，超过预算 {budget}",
     "lint.tokenBudgetError": "模型每步要看到的 skill 描述约 {tokens} tokens，超过预算 {budget} 的 2 倍",
     "lint.tooManySkills": "有 {count} 个 skill 会展示给模型（建议 ≤ 60）",
+    "lint.invalidFrontmatter": '"{id}" 的 frontmatter 格式有问题：{detail}',
+    "lint.frontmatterUnclosed": "缺少闭合的 ---",
+    "lint.frontmatterTypes": "name/description/metadata 类型不对",
+    "lint.emptyBody": '"{id}" 正文几乎是空的（{chars} 字符）',
+    "lint.brokenReference": '"{id}" 引用了不存在的文件：{refs}',
+    "lint.referenceOutside": '"{id}" 引用了 skill 目录之外的文件：{refs}',
 
     "managed.lockUnsupported":
       "lock 版本 {version} 高于本工具支持的 {supported}，已按兼容模式解析（未知字段忽略）",
