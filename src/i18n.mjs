@@ -7,6 +7,7 @@ const dict = {
 
 Usage:
   skills-doctor check  [options]   check sources, conflicts and context budget (default)
+  skills-doctor plan   [options]   estimate how many tokens you can save, and how
   skills-doctor scan   [options]   list every skill with its source and precedence
   skills-doctor fix    [options]   archive shadowed definitions (safe structural fixes)
   skills-doctor update [options]   compare and download skills from HTTP catalogs
@@ -19,6 +20,8 @@ Options:
   --root <dir>         working directory (default: current directory)
   --no-global          skip ~/.claude, ~/.agents and ~/.config/opencode
   --budget <n>         tokens allowed for advertised descriptions (default 1200)
+  --desc-target <n>    plan: target description length in chars (default 160)
+  --steps <n>          plan: project savings over n model steps (default 100)
   --stale-days <n>     report skills not updated in n days (default: off)
   --strict             exit non-zero on warnings too
   --json               print JSON
@@ -56,6 +59,27 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
     "check.summary": "{errors} error, {warnings} warn, {infos} info",
     "check.strict": " (--strict: warnings also fail)",
     "check.hints": "Hints:",
+    "check.planHint": "  ! potential: about {tokens} tokens/step can be saved; run `skills-doctor plan` for the breakdown",
+
+    "plan.title": "skills-doctor plan",
+    "plan.current": "  current: ~{tokens} tokens/step ({count} advertised skills)",
+    "plan.budget": "  budget: {budget}  gap: {gap}",
+    "plan.steps": "  projection: {steps} model steps",
+    "plan.under": "Under budget — no changes needed.",
+    "plan.trimTitle": "Option A — trim descriptions to {chars} chars (stays discoverable)",
+    "plan.trimLine": "  {count} skills, saves ~{savings} tokens/step → ~{final} tokens",
+    "plan.trimNone": "  nothing to trim.",
+    "plan.trimItem": "    - {id} (−{saving})",
+    "plan.hideTitle": "Option B — hide skills (autoinvoke: false, still loadable with @id)",
+    "plan.hideLine": "  hide {count} skills, saves ~{savings} tokens/step → ~{final} tokens",
+    "plan.hideNone": "  no hide needed.",
+    "plan.recTitle": "Recommended",
+    "plan.recLine": "  trim {trims} + hide {hides} → ~{final} tokens/step (saves ~{savings})",
+    "plan.hideItem": "    - hide {id} (−{tokens})",
+    "plan.hidesAll": "  ! this would hide every skill; consider raising the budget instead.",
+    "plan.session": "  over {steps} steps that saves ~{tokens} tokens",
+    "plan.more": "    …and {count} more",
+    "plan.next": "Next: hide with `skills-doctor fix --hide <ids>`, or trim descriptions and keep discoverability.",
 
     "scan.title": "skills-doctor {version} — scan",
     "scan.workdir": "  working dir: {dir}",
@@ -192,6 +216,7 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
 
 用法:
   skills-doctor check  [选项]   检查来源、冲突与上下文预算（默认命令）
+  skills-doctor plan   [选项]   估算能省多少 token、怎么省
   skills-doctor scan   [选项]   列出所有 skill 及其来源/优先级
   skills-doctor fix    [选项]   归档被遮蔽的定义（安全的结构性修复）
   skills-doctor update [选项]   对比并拉取 HTTP catalog 里的 skill
@@ -204,6 +229,8 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
   --root <dir>        以该目录为工作目录（默认当前目录）
   --no-global         不扫描 ~/.claude、~/.agents、~/.config/opencode
   --budget <n>        模型每步可看的 description token 预算（默认 1200）
+  --desc-target <n>   plan: description 目标字符数（默认 160）
+  --steps <n>         plan: 按 n 个模型步骤折算节省量（默认 100）
   --stale-days <n>    超过 n 天未更新的 skill 给出提示（默认关闭）
   --strict            有 warning 也返回非 0
   --json              输出 JSON
@@ -241,6 +268,27 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
     "check.summary": "{errors} error, {warnings} warn, {infos} info",
     "check.strict": "（--strict：warning 也会非 0 退出）",
     "check.hints": "建议:",
+    "check.planHint": "  ! 预计每步还能省约 {tokens} tokens；运行 `skills-doctor plan` 看具体方案",
+
+    "plan.title": "skills-doctor 省 token 方案",
+    "plan.current": "  当前: 约 {tokens} tokens/步（{count} 个会展示的 skill）",
+    "plan.budget": "  预算: {budget}  差距: {gap}",
+    "plan.steps": "  折算: {steps} 个模型步骤",
+    "plan.under": "已在预算内，无需改动。",
+    "plan.trimTitle": "方案 A —— 精简 description 到 {chars} 字符（仍可被发现）",
+    "plan.trimLine": "  {count} 个 skill，每步省约 {savings} tokens → 约 {final} tokens",
+    "plan.trimNone": "  没有需要精简的。",
+    "plan.trimItem": "    - {id}（−{saving}）",
+    "plan.hideTitle": "方案 B —— 隐藏 skill（autoinvoke: false，仍可 @id 加载）",
+    "plan.hideLine": "  隐藏 {count} 个，每步省约 {savings} tokens → 约 {final} tokens",
+    "plan.hideNone": "  无需隐藏。",
+    "plan.recTitle": "推荐方案",
+    "plan.recLine": "  精简 {trims} 个 + 隐藏 {hides} 个 → 约 {final} tokens/步（省约 {savings}）",
+    "plan.hideItem": "    - 隐藏 {id}（−{tokens}）",
+    "plan.hidesAll": "  ! 这样会把所有 skill 都隐藏；建议改为提高预算。",
+    "plan.session": "  按 {steps} 步计算，共省约 {tokens} tokens",
+    "plan.more": "    …还有 {count} 个",
+    "plan.next": "下一步：用 `skills-doctor fix --hide <ids>` 隐藏，或精简 description 保留可发现性。",
 
     "scan.title": "skills-doctor {version} — scan",
     "scan.workdir": "  工作目录: {dir}",

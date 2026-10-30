@@ -20,9 +20,10 @@ OpenCode skill 的**本地检测器 + 更新器 + 修复器**，并附带 **Open
 | **能查** | 同 ID 遮蔽、重复、超长描述、超大正文、每步 token 预算、断链引用、非法 frontmatter、空正文、陈旧 skill |
 | **能修** | 归档遮蔽定义（可逆）、隐藏低频 skill、catalog 同步并检测 drift |
 | **报告** | 终端、JSON，或自包含 HTML（`--html [file] --open`） |
+| **规划** | 精确 token 节省：精简描述 / 隐藏 skill，按 N 步折算 |
 | **成本** | CLI 0 token；插件工具定义约 191/步，另有每会话一次预警 |
 | **要求** | Node ≥ 20，零运行时依赖 |
-| **质量** | 50 个测试，ubuntu/macos/windows × Node 20/22/24 CI |
+| **质量** | 53 个测试，ubuntu/macos/windows × Node 20/22/24 CI |
 
 ## 为什么需要它
 
@@ -101,6 +102,23 @@ skills-doctor check --html report.html --open
 - 只写 `--html` 不带路径时默认 `./skills-report.html`；`--open` 自动打开浏览器。
 
 插件和 MCP 工具同样接受 `html` 参数，所以可以让 agent 先问你要存哪里——例如：*"把报告存到 D:\reports\skills.html"*。
+
+### `plan`（到底能省多少 token？）
+
+```powershell
+skills-doctor plan
+skills-doctor plan --budget 800 --desc-target 160 --steps 200
+skills-doctor plan --json
+```
+
+回答「能省多少、怎么省」：
+
+- 只有**会展示给模型**的定义才花 token —— 归档遮蔽重复定义省 0，方案里会明说，不糊弄；
+- **方案 A**：把所有超过 `--desc-target`（默认 160 字符，按句子边界截断）的 description 精简，算出精确节省；
+- **方案 B**：用最少的隐藏数量把总量压进预算（仍可 `@id` 加载；按单项节省从大到小取，对「最少隐藏数」是最优的）；
+- **推荐方案**：先精简再隐藏，不重复计算，并按 `--steps`（默认 100）折算总节省。
+
+超预算时 `check` 会打印一行提示，HTML 报告里有同样的「potential savings」卡片。
 
 ### `scan`
 
@@ -468,13 +486,13 @@ token 是启发式估算，1200 是建议预算。可以用 `--budget` 或 `.ski
 
 ## Roadmap
 
-- v0.5：CI 治理（baseline 只报新增问题、官方 GitHub Action）、内容层建议（哪些 skill 从未被使用）、catalog 签名校验
+- v0.6：CI 治理（baseline 只报新增问题、官方 GitHub Action）、内容层建议（哪些 skill 从未被使用）、catalog 签名校验
 - 后续：V1/Claude skill 兼容迁移报告
 
 ## 开发与贡献
 
 ```powershell
-npm test          # 50 个测试（node test/doctor.test.mjs）
+npm test          # 53 个测试（node test/doctor.test.mjs）
 npm run bench     # 100/500/1000 个 skill 的 lint 耗时
 ```
 

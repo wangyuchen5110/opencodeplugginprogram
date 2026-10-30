@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.0
+
+- `plan` command: exact token-savings model — trim descriptions to a sentence-boundary target, hide the minimal number of skills to reach the budget, no double counting, projected over N model steps; `--json`.
+- `check` prints a potential-savings hint when over budget; HTML report adds a potential-savings card and plan line.
+- Tests: 53.
+
 ## 0.4.2
 
 - Docs: refresh test counts (50), sample output version, roadmap, and the installer/plugin command lists; no code changes.

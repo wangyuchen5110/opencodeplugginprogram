@@ -1,6 +1,7 @@
 import fs from "node:fs"
 import path from "node:path"
 import { spawn } from "node:child_process"
+import { planBudget } from "./plan.mjs"
 
 function esc(value) {
   return String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char])
@@ -13,6 +14,7 @@ export function renderHtml(audit, { title = "skills-doctor report", now = new Da
   const summary = audit.summary
   const counts = audit.counts
   const budget = audit.budget
+  const plan = planBudget(audit)
   const ratio = budget > 0 ? Math.min(1.5, summary.advertisedTokens / (budget * 2)) : 0
   const barWidth = Math.min(100, Math.round(ratio * 100))
   const barClass = summary.advertisedTokens > budget * 2 ? "over" : summary.advertisedTokens > budget ? "warn" : "ok"
@@ -89,6 +91,7 @@ export function renderHtml(audit, { title = "skills-doctor report", now = new Da
     <div class="card"><div class="k">unique IDs</div><div class="v">${summary.unique}</div></div>
     <div class="card"><div class="k">advertised</div><div class="v">${summary.advertised}</div></div>
     <div class="card"><div class="k">description tokens / step</div><div class="v">${summary.advertisedTokens}</div></div>
+    <div class="card"><div class="k">potential savings / step</div><div class="v">${plan.recommended.savings}</div></div>
     <div class="card error"><div class="k">errors</div><div class="v">${counts.errors}</div></div>
     <div class="card warn"><div class="k">warnings</div><div class="v">${counts.warnings}</div></div>
     <div class="card info"><div class="k">info</div><div class="v">${counts.infos}</div></div>
@@ -97,6 +100,7 @@ export function renderHtml(audit, { title = "skills-doctor report", now = new Da
   <h2>Context budget</h2>
   <div class="bar"><span class="${barClass}"></span></div>
   <div class="sub">${summary.advertisedTokens} tokens vs budget ${budget}${summary.advertisedTokens > budget * 2 ? " (over 2x)" : summary.advertisedTokens > budget ? " (over)" : " (ok)"}</div>
+  <div class="sub">plan: trim ${plan.trim.count} + hide ${plan.recommended.hides.length} → ~${plan.recommended.final} tokens/step (saves ~${plan.recommended.savings}; ~${plan.recommended.stepsSavings} over ${plan.steps} steps)</div>
 
   <h2>Findings (${audit.findings.length})</h2>
   <div class="toolbar">

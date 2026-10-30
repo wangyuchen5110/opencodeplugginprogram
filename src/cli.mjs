@@ -10,6 +10,7 @@ import { loadConfig } from "./config.mjs"
 import { startMcpServer } from "./mcp.mjs"
 import { installOpenCode, uninstallOpenCode } from "./install.mjs"
 import { writeHtmlReport, openReport } from "./html.mjs"
+import { planBudget } from "./plan.mjs"
 import {
   checkForUpdate,
   resolveMode,
@@ -76,12 +77,14 @@ function parseArgs(argv) {
     open: false,
     apply: false,
     updateCheck: true,
+    descTarget: 160,
+    steps: 100,
     help: false,
     version: false,
   }
 
   const args = [...argv]
-  const commands = new Set(["check", "scan", "update", "fix", "install", "uninstall", "upgrade", "mcp", "help"])
+  const commands = new Set(["check", "scan", "plan", "update", "fix", "install", "uninstall", "upgrade", "mcp", "help"])
   if (args[0] && commands.has(args[0])) {
     options.command = args.shift()
   }
@@ -100,6 +103,12 @@ function parseArgs(argv) {
         break
       case "--stale-days":
         options.staleDays = Number(args[++i])
+        break
+      case "--desc-target":
+        options.descTarget = Number(args[++i])
+        break
+      case "--steps":
+        options.steps = Number(args[++i])
         break
       case "--strict":
         options.strict = true
@@ -279,6 +288,92 @@ function printCheck(audit, result, options, t) {
     console.log(bold(t("check.hints")))
     for (const rule of usedRules) console.log(dim(`  - ${t(HINT_KEYS[rule])}`))
   }
+
+  if (audit.summary.advertisedTokens > audit.budget) {
+    const plan = planBudget(audit)
+    if (plan.recommended.savings > 0) {
+      console.log("")
+      console.log(yellow(t("check.planHint", { tokens: plan.recommended.savings })))
+    }
+  }
+}
+
+function printPlan(plan, t) {
+  console.log(bold(t("plan.title")))
+  console.log(dim(t("plan.current", { tokens: plan.current, count: plan.advertised })))
+  console.log(dim(t("plan.budget", { budget: plan.budget, gap: plan.gap })))
+  console.log(dim(t("plan.steps", { steps: plan.steps })))
+  console.log("")
+
+  const sessionLine = (savings) => {
+    if (plan.steps > 0 && savings > 0) console.log(dim(t("plan.session", { tokens: savings * plan.steps, steps: plan.steps })))
+  }
+
+  if (plan.current <= plan.budget) {
+    console.log(green(t("plan.under")))
+    if (plan.trim.count) {
+      console.log("")
+      console.log(bold(t("plan.trimTitle", { chars: plan.descTarget })))
+      console.log(
+        t("plan.trimLine", {
+          count: plan.trim.count,
+          savings: plan.trim.savings,
+          final: Math.max(0, plan.current - plan.trim.savings),
+        }),
+      )
+      sessionLine(plan.trim.savings)
+    }
+    return
+  }
+
+  console.log(bold(t("plan.trimTitle", { chars: plan.descTarget })))
+  if (plan.trim.count) {
+    console.log(
+      t("plan.trimLine", {
+        count: plan.trim.count,
+        savings: plan.trim.savings,
+        final: Math.max(0, plan.current - plan.trim.savings),
+      }),
+    )
+    for (const item of plan.trim.items.slice(0, 10)) {
+      console.log(dim(t("plan.trimItem", { id: item.id, saving: item.saving })))
+    }
+    if (plan.trim.items.length > 10) console.log(dim(t("plan.more", { count: plan.trim.items.length - 10 })))
+  } else {
+    console.log(dim(t("plan.trimNone")))
+  }
+  console.log("")
+
+  console.log(bold(t("plan.hideTitle")))
+  if (plan.hideOnly.count) {
+    console.log(
+      t("plan.hideLine", {
+        count: plan.hideOnly.count,
+        savings: plan.hideOnly.savings,
+        final: plan.hideOnly.final,
+      }),
+    )
+  } else {
+    console.log(dim(t("plan.hideNone")))
+  }
+  console.log("")
+
+  console.log(bold(t("plan.recTitle")))
+  console.log(
+    t("plan.recLine", {
+      trims: plan.trim.count,
+      hides: plan.recommended.hides.length,
+      final: plan.recommended.final,
+      savings: plan.recommended.savings,
+    }),
+  )
+  for (const item of plan.recommended.hides) {
+    console.log(dim(t("plan.hideItem", { id: item.id, tokens: item.tokens })))
+  }
+  if (plan.recommended.hidesEverything) console.log(yellow(t("plan.hidesAll")))
+  sessionLine(plan.recommended.savings)
+  console.log("")
+  console.log(dim(t("plan.next")))
 }
 
 function printScan(discovered, options, managed, t) {
@@ -589,6 +684,21 @@ export async function main(argv) {
         console.log(green(t("upgrade.upToDate")))
       }
     }
+    return
+  }
+
+  if (options.command === "plan") {
+    const audit = auditSkills({
+      cwd,
+      includeGlobal: options.global,
+      lang,
+      configPath: options.config,
+      budget: options.budget,
+      staleDays: options.staleDays,
+    })
+    const plan = planBudget(audit, { descTarget: options.descTarget, steps: options.steps })
+    if (options.json) console.log(JSON.stringify(plan, null, 2))
+    else printPlan(plan, t)
     return
   }
 

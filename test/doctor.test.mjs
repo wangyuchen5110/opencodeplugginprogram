@@ -18,6 +18,7 @@ import { handleMessage, toolDefinition, startMcpServer, PROTOCOL_VERSION } from 
 import { installOpenCode, uninstallOpenCode } from "../src/install.mjs"
 import { budgetWarning, resetWarningState } from "../src/warning.mjs"
 import { compareVersions, resolveMode, checkForUpdate, upgradeCommand } from "../src/self-update.mjs"
+import { planBudget, trimDescription } from "../src/plan.mjs"
 import { normalizeLang, translator } from "../src/i18n.mjs"
 import { main } from "../src/cli.mjs"
 import { PassThrough } from "node:stream"
@@ -939,6 +940,58 @@ test("self-update: 版本比较、模式解析、24h 缓存与关闭开关", asy
 
   const off = await checkForUpdate({ current: "0.4.1", mode: "off", fetchImpl, cacheFile, now })
   assert.equal(off, null)
+})
+
+test("plan: 精简 + 隐藏的 token 账本自洽", () => {
+  const project = tmpdir()
+  fs.mkdirSync(path.join(project, ".git"))
+  for (const id of ["alpha", "beta", "gamma", "delta"]) {
+    write(
+      path.join(project, ".opencode", "skills", id, "SKILL.md"),
+      `---\ndescription: ${"a".repeat(400)}.\n---\nBody instructions here.\n`,
+    )
+  }
+
+  const audit = auditSkills({ cwd: project, includeGlobal: false, budget: 300 })
+  const plan = planBudget(audit, { budget: 300 })
+
+  assert.equal(plan.current, audit.summary.advertisedTokens)
+  assert.ok(plan.current > 300)
+  assert.equal(plan.trim.count, 4)
+  assert.ok(plan.trim.savings > 0)
+  assert.ok(plan.recommended.final <= 300)
+  assert.equal(plan.recommended.final, plan.current - plan.recommended.savings)
+  assert.equal(plan.recommended.savings, plan.recommended.trimSavings + plan.recommended.hideSavings)
+  assert.equal(plan.recommended.stepsSavings, plan.recommended.savings * 100)
+
+  const under = planBudget(audit, { budget: 10000 })
+  assert.equal(under.gap, 0)
+  assert.equal(under.recommended.hides.length, 0)
+})
+
+test("plan: trimDescription 在句子边界截断且不超限", () => {
+  assert.equal(trimDescription("short", 160), "short")
+  const text = "First sentence. Second sentence that keeps going and going."
+  const out = trimDescription(text, 20)
+  assert.ok(out.length <= 20)
+  assert.ok(out.endsWith("."))
+})
+
+test("CLI: plan --json 输出结构化方案", async () => {
+  const project = tmpdir()
+  fs.mkdirSync(path.join(project, ".git"))
+  for (const id of ["alpha", "beta", "gamma"]) {
+    write(
+      path.join(project, ".opencode", "skills", id, "SKILL.md"),
+      `---\ndescription: ${"b".repeat(500)}.\n---\nBody instructions here.\n`,
+    )
+  }
+  const json = await runCli(["plan", "--root", project, "--no-global", "--budget", "200", "--json"])
+  const parsed = JSON.parse(json.output)
+  assert.ok(parsed.current > 200)
+  assert.ok(parsed.recommended.final <= 200)
+  assert.ok(parsed.recommended.stepsSavings > 0)
+  assert.ok(Array.isArray(parsed.recommended.hides))
 })
 
 test("audit: 结构化结果与 markdown 渲染", () => {

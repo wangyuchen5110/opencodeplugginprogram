@@ -20,9 +20,10 @@ Local scanner, linter, fixer, updater and **OpenCode plugin** for agent skills �
 | **What it finds** | shadowed IDs, duplicates, long descriptions, oversized bodies, per-step token budget, broken file references, invalid frontmatter, empty bodies, stale skills |
 | **What it fixes** | archives shadowed definitions (reversible), hides low-frequency skills, syncs catalogs with drift detection |
 | **Reports** | terminal, JSON, or a self-contained HTML report (`--html [file] --open`) |
+| **Plan** | exact token savings: trim descriptions and/or hide skills, projected over N steps |
 | **Cost** | CLI: 0 tokens. Plugin: ~191 tokens/step for the tool definition, plus a one-time warning per session |
 | **Requirements** | Node ≥ 20, zero runtime dependencies |
-| **Quality** | 50 tests, CI on ubuntu/macos/windows × Node 20/22/24 |
+| **Quality** | 53 tests, CI on ubuntu/macos/windows × Node 20/22/24 |
 
 ## Why
 
@@ -101,6 +102,23 @@ skills-doctor check --html report.html --open
 - default path `./skills-report.html` when `--html` is given without a value; `--open` launches the browser.
 
 The plugin and MCP tool accept the same thing as an `html` argument, so the agent can ask you where to save it — for example: *"save the report to D:\reports\skills.html"*.
+
+### `plan` (how many tokens can I actually save?)
+
+```powershell
+skills-doctor plan
+skills-doctor plan --budget 800 --desc-target 160 --steps 200
+skills-doctor plan --json
+```
+
+It answers "how much can I cut, exactly?":
+
+- only **advertised** definitions cost tokens — archiving shadowed duplicates saves 0, and the plan says so instead of pretending;
+- **Option A** trims every description longer than `--desc-target` (default 160 chars, cut at sentence boundaries) and computes the exact saving;
+- **Option B** hides the fewest skills needed to reach the budget (still loadable with `@id`; picking the largest savings first is optimal for "minimal hides");
+- **Recommended** trims first, then hides, with no double counting, and projects the saving over `--steps` model steps (default 100).
+
+`check` prints a one-line pointer when you are over budget, and the HTML report shows the same potential-savings card.
 
 ### `scan`
 
@@ -468,13 +486,13 @@ Executing code is free, but the tool definition is part of the model's context. 
 
 ## Roadmap
 
-- v0.5: CI governance (baseline that only reports new issues, official GitHub Action), content-aware suggestions (which skills are never used), catalog signature verification
+- v0.6: CI governance (baseline that only reports new issues, official GitHub Action), content-aware suggestions (which skills are never used), catalog signature verification
 - Later: V1/Claude skill migration report
 
 ## Development and contributing
 
 ```powershell
-npm test          # 50 tests (node test/doctor.test.mjs)
+npm test          # 53 tests (node test/doctor.test.mjs)
 npm run bench     # lint timing for 100/500/1000 skills
 ```
 
