@@ -34,7 +34,21 @@ OpenCode skill 的**本地检测器 + 更新器 + 修复器**，并附带 **Open
 | **规划** | 精确 token 节省：精简描述 / 隐藏 skill，按 N 步折算 |
 | **成本** | CLI 0 token；插件工具定义约 191/步，另有每会话一次预警 |
 | **要求** | Node ≥ 20，零运行时依赖 |
-| **质量** | 58 个测试，ubuntu/macos/windows × Node 20/22/24 CI |
+| **质量** | 63 个测试，ubuntu/macos/windows × Node 20/22/24 CI |
+
+## 隐私：纯本地运行，不收集数据
+
+`skills-doctor` 完全在你自己的机器上运行。没有遥测、没有统计、不需要账号和 API key，也不会把你的 skill、提示词、对话或文件上传到任何地方。
+
+| | |
+|---|---|
+| **会读** | 只读 skill 定义（`SKILL.md` 及其引用的 `references/`、`scripts/`、`assets/` 文件）、agent 配置（`opencode.json(c)`、`.skills-doctor.json`、DSH patch、MCP 配置）和它自己的 lockfile |
+| **不会读** | 对话历史、会话记录、源代码、文档、凭据、API key、环境变量里的密钥 |
+| **不会上传** | 任何东西：没有服务端组件，除下面两个可选联网外没有任何远端地址 |
+| **联网** | 只在你主动触发时发生：`update` 抓取**你自己配置**的 HTTP catalog；`upgrade` / 每日更新检查只读 npm registry 的最新版本号（缓存 24h，可用 `"checkUpdates": "off"`、`SKILLS_DOCTOR_UPDATE_CHECK=0` 或 `--no-update-check` 关闭） |
+| **会写** | 只写你要求的内容：HTML/JSON 报告、`.skills-doctor-archive/`、`.skills-doctor.json`、lockfile，以及 `install` 生成的插件/MCP/skill 条目 |
+
+`opencode.json(c)` 和 MCP 配置里可能有凭据；它们只在本地被解析用来定位相关条目，值不会被发送，也不会出现在报告里。报告只含文件路径和 skill 描述（本来就是你的 skill 文件内容），不包含正文。`check`、`plan`、`scan`、`fix --dry-run`、`mcp` 都可以在断网环境下运行。
 
 ## 为什么需要它
 

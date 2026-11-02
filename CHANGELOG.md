@@ -7,6 +7,7 @@
 - Performance: near-duplicate description detection now sorts by token-set size and exits at the Jaccard upper bound instead of testing every pair. On the uniform-size benchmark (`npm run bench`, 1,000 skills) that is ~248 ms -> ~220 ms; descriptions of varying length skip far more pairs.
 - Tool descriptions (`mcp`, both plugin entries) now list every supported agent - OpenCode, Claude Code, Grok, Cursor, Hermes, Kimi, DSH - and stay short enough to keep the tool schema cheap.
 - Docs: discovery list, DSH root, and a pointer to the OpenClaw wrapper.
+- Docs: privacy statement in the READMEs and both SECURITY files - runs 100% locally, no telemetry, does not read chats/sessions/credentials, uploads nothing; the only optional network calls are `update` (your catalogs) and the npm version check (disableable).
 - Tests: 63.
 
 ## 0.8.1

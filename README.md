@@ -20,6 +20,9 @@
   English · <a href="docs/README.zh-CN.md">简体中文</a> · <a href="CHANGELOG.md">Changelog</a> · <a href="SECURITY.md">Security</a> · <a href="docs/REFERENCE.md">Full reference</a>
 </p>
 
+> **Runs 100% locally.** No telemetry, no account, no uploads — your skills,
+> prompts and files never leave your machine. See [Privacy](#privacy-local-only-no-data-collection).
+
 ---
 
 ## The 30-second version
@@ -35,6 +38,20 @@ Every agent skill with a `description` is advertised to the model on **every sin
 | **Update** | sync skills from HTTP catalogs with a lockfile, drift detection and `--prune` |
 | **Report** | terminal, JSON, or a self-contained HTML report |
 | **Run it** | CLI · OpenCode plugin (1.x/2.x/Desktop) · MCP server · DeepSeek Harness skill |
+
+## Privacy: local-only, no data collection
+
+`skills-doctor` runs entirely on your machine. There is no telemetry, no analytics, no account, no API key, and nothing is uploaded — not your skills, prompts, conversations or files.
+
+| | |
+|---|---|
+| **Reads** | only skill definitions (`SKILL.md` plus the `references/`, `scripts/`, `assets/` files they point at), agent config (`opencode.json(c)`, `.skills-doctor.json`, DSH patch, MCP configs) and the lockfile |
+| **Never reads** | conversation history, session transcripts, source code, documents, credentials, API keys or environment secrets |
+| **Uploads** | nothing: there is no server component and no remote endpoint besides the two optional calls below |
+| **Network** | only when you ask for it. `update` fetches the HTTP catalogs **you** configure; `upgrade` / the daily update check reads the npm registry for the latest version number (cached 24 h — disable with `"checkUpdates": "off"`, `SKILLS_DOCTOR_UPDATE_CHECK=0` or `--no-update-check`) |
+| **Writes** | only what you asked for: the HTML/JSON report, `.skills-doctor-archive/`, `.skills-doctor.json`, the lockfile, and the plugin/MCP/skill entries created by `install` |
+
+`opencode.json(c)` and MCP configs can contain credentials; they are parsed locally only to find the relevant entries, and those values are never sent anywhere nor included in a report. Reports contain file paths and skill descriptions (which are part of your skill files), never file bodies. `check`, `plan`, `scan`, `fix --dry-run` and `mcp` all work with the network fully offline.
 
 ## See it
 
