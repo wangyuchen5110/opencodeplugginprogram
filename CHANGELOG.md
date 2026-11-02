@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.1
+
+- OpenCode Desktop support: `install --client auto|opencode|desktop` detects the desktop app in standard locations, reads its bundled core version from `resources/app.asar`, and wires the shared config directory.
+- Desktop and CLI share `~/.config/opencode`, so one install covers both; `uninstall --client desktop` reverses it.
+- Tests: 55.
+
 ## 0.5.0
 
 - `plan` command: exact token-savings model — trim descriptions to a sentence-boundary target, hide the minimal number of skills to reach the budget, no double counting, projected over N model steps; `--json`.

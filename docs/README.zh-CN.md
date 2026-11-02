@@ -23,7 +23,7 @@ OpenCode skill 的**本地检测器 + 更新器 + 修复器**，并附带 **Open
 | **规划** | 精确 token 节省：精简描述 / 隐藏 skill，按 N 步折算 |
 | **成本** | CLI 0 token；插件工具定义约 191/步，另有每会话一次预警 |
 | **要求** | Node ≥ 20，零运行时依赖 |
-| **质量** | 53 个测试，ubuntu/macos/windows × Node 20/22/24 CI |
+| **质量** | 55 个测试，ubuntu/macos/windows × Node 20/22/24 CI |
 
 ## 为什么需要它
 
@@ -264,6 +264,21 @@ export { SkillsDoctorPlugin } from "opencode-skills-doctor/v1"
 
 > 包根入口是 V2 插件，需要 OpenCode 2.x；CLI 两条线都能用。
 
+### OpenCode Desktop
+
+桌面版内置的是同一套 OpenCode core，读的也是**同一个配置目录**（`~/.config/opencode`；桌面 UI 的设置另存），所以一次安装两边都生效：
+
+```powershell
+npx opencode-skills-doctor install --client desktop
+```
+
+- 在标准安装位置探测桌面版，并从 `resources/app.asar` 读出内置 core 版本（例如 1.17.11），据此选择对应插件 API；
+- 写入与 CLI 相同的插件条目和 `/skills-doctor`、`/skills-report`、`/skills-upgrade` 命令 —— 装完重启桌面应用；
+- `--client auto`（默认）在同时装了 CLI 时优先 CLI 版本；`--client opencode` 跳过桌面探测；
+- `uninstall --client desktop` 反向撤销。
+
+已在 Windows 验证：应用位于 `%LOCALAPPDATA%\Programs\@opencode-aidesktop\OpenCode.exe`，与 `opencode` CLI 共用配置。
+
 ### 一键深度集成
 
 ```powershell
@@ -492,7 +507,7 @@ token 是启发式估算，1200 是建议预算。可以用 `--budget` 或 `.ski
 ## 开发与贡献
 
 ```powershell
-npm test          # 53 个测试（node test/doctor.test.mjs）
+npm test          # 55 个测试（node test/doctor.test.mjs）
 npm run bench     # 100/500/1000 个 skill 的 lint 耗时
 ```
 

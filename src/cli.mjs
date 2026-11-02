@@ -71,6 +71,7 @@ function parseArgs(argv) {
     into: null,
     checkOnly: false,
     prune: false,
+    client: "auto",
     configDir: null,
     noNpm: false,
     html: null,
@@ -148,6 +149,10 @@ function parseArgs(argv) {
       case "--config-dir":
         options.configDir = path.resolve(args[++i] ?? ".")
         break
+      case "--client": {
+        options.client = String(args[++i] ?? "").toLowerCase()
+        break
+      }
       case "--no-npm":
         options.noNpm = true
         break
@@ -586,6 +591,12 @@ export async function main(argv) {
     process.exit(2)
   }
 
+  if (!["auto", "opencode", "desktop"].includes(options.client)) {
+    console.error("unsupported --client: expected auto, opencode or desktop")
+    process.exitCode = 2
+    return
+  }
+
   const cwd = path.resolve(options.root)
   const loaded = loadConfig(cwd, options.config)
   const lang = normalizeLang(options.lang) ?? normalizeLang(loaded.config.lang) ?? detectLang()
@@ -610,6 +621,7 @@ export async function main(argv) {
       configDir: options.configDir ?? undefined,
       dryRun: options.dryRun,
       installPackage: !options.noNpm,
+      client: options.client,
     })
     if (options.json) {
       console.log(JSON.stringify(result, null, 2))
@@ -617,6 +629,12 @@ export async function main(argv) {
       console.log(bold(t("install.title")))
       console.log(dim(t("install.version", { version: result.version ?? "unknown" })))
       console.log(dim(t("install.configDir", { dir: result.configDir })))
+      console.log(dim(t("install.client", { client: result.client?.mode ?? options.client })))
+      if (result.client?.desktop) {
+        console.log(
+          dim(t("install.desktop", { version: result.client.desktop.version ?? "unknown", exe: result.client.desktop.exe })),
+        )
+      }
       if (result.dryRun) console.log(dim(t("install.dryRun")))
       for (const action of result.actions) console.log(`  · ${action}`)
       for (const error of result.errors) console.log(red(t("install.error", { error })))
@@ -632,6 +650,7 @@ export async function main(argv) {
       configDir: options.configDir ?? undefined,
       dryRun: options.dryRun,
       removePackage: !options.noNpm,
+      client: options.client,
     })
     if (options.json) {
       console.log(JSON.stringify(result, null, 2))
@@ -639,6 +658,12 @@ export async function main(argv) {
       console.log(bold(t("uninstall.title")))
       console.log(dim(t("install.version", { version: result.version ?? "unknown" })))
       console.log(dim(t("install.configDir", { dir: result.configDir })))
+      console.log(dim(t("install.client", { client: result.client?.mode ?? options.client })))
+      if (result.client?.desktop) {
+        console.log(
+          dim(t("install.desktop", { version: result.client.desktop.version ?? "unknown", exe: result.client.desktop.exe })),
+        )
+      }
       if (result.dryRun) console.log(dim(t("install.dryRun")))
       for (const action of result.actions) console.log(`  · ${action}`)
       for (const error of result.errors) console.log(red(t("install.error", { error })))

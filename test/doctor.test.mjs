@@ -19,6 +19,7 @@ import { installOpenCode, uninstallOpenCode } from "../src/install.mjs"
 import { budgetWarning, resetWarningState } from "../src/warning.mjs"
 import { compareVersions, resolveMode, checkForUpdate, upgradeCommand } from "../src/self-update.mjs"
 import { planBudget, trimDescription } from "../src/plan.mjs"
+import { readAsarVersion, detectDesktop } from "../src/desktop.mjs"
 import { normalizeLang, translator } from "../src/i18n.mjs"
 import { main } from "../src/cli.mjs"
 import { PassThrough } from "node:stream"
@@ -992,6 +993,45 @@ test("CLI: plan --json 输出结构化方案", async () => {
   assert.ok(parsed.recommended.final <= 200)
   assert.ok(parsed.recommended.stepsSavings > 0)
   assert.ok(Array.isArray(parsed.recommended.hides))
+})
+
+function makeAsar(dir, version) {
+  const pkg = Buffer.from(JSON.stringify({ name: "fake", version }))
+  const json = Buffer.from(JSON.stringify({ files: { "package.json": { size: pkg.length, offset: "0" } } }))
+  const headerSize = json.length + 8
+  const buf = Buffer.alloc(16 + json.length + pkg.length)
+  buf.writeUInt32LE(4, 0)
+  buf.writeUInt32LE(headerSize, 4)
+  buf.writeUInt32LE(json.length + 4, 8)
+  buf.writeUInt32LE(json.length, 12)
+  json.copy(buf, 16)
+  pkg.copy(buf, 16 + json.length)
+  fs.mkdirSync(path.dirname(dir), { recursive: true })
+  fs.writeFileSync(dir, buf)
+  return dir
+}
+
+test("desktop: 读取 asar 版本并识别安装路径", () => {
+  const root = tmpdir()
+  const asar = makeAsar(path.join(root, "resources", "app.asar"), "9.9.9")
+  assert.equal(readAsarVersion(asar), "9.9.9")
+
+  assert.equal(detectDesktop({ platform: "win32", env: { LOCALAPPDATA: root }, home: root }).installed, false)
+
+  const installedRoot = tmpdir()
+  const installedExe = path.join(installedRoot, "Programs", "@opencode-aidesktop", "OpenCode.exe")
+  makeAsar(path.join(path.dirname(installedExe), "resources", "app.asar"), "1.17.11")
+  fs.mkdirSync(path.dirname(installedExe), { recursive: true })
+  fs.writeFileSync(installedExe, "")
+
+  const detected = detectDesktop({ platform: "win32", env: { LOCALAPPDATA: installedRoot }, home: installedRoot })
+  assert.equal(detected.installed, true)
+  assert.equal(detected.version, "1.17.11")
+})
+
+test("CLI: --client 只接受 auto/opencode/desktop", async () => {
+  const result = await runCli(["install", "--client", "nope", "--dry-run"])
+  assert.equal(result.exitCode, 2)
 })
 
 test("audit: 结构化结果与 markdown 渲染", () => {

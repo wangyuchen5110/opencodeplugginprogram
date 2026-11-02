@@ -3,6 +3,7 @@ import path from "node:path"
 import os from "node:os"
 import { spawnSync, execFileSync } from "node:child_process"
 import { stripJsonc } from "./discover.mjs"
+import { detectDesktop } from "./desktop.mjs"
 
 export const PACKAGE_NAME = "opencode-skills-doctor"
 const PLUGIN_FILE = "skills-doctor.js"
@@ -106,7 +107,13 @@ function installPackage(dir) {
  * - 2.x：写入 plugins 数组（OpenCode 自己从 npm 拉包）
  * - 1.x：在配置目录安装包、写本地插件入口、写 /skills-doctor 命令、补插件数组
  */
-export function installOpenCode({ configDir = defaultConfigDir(), version = null, dryRun = false, installPackage: withPackage = true } = {}) {
+export function installOpenCode({
+  configDir = defaultConfigDir(),
+  version = null,
+  dryRun = false,
+  installPackage: withPackage = true,
+  client = "auto",
+} = {}) {
   const dir = path.resolve(configDir)
   const actions = []
   const errors = []
@@ -125,14 +132,31 @@ export function installOpenCode({ configDir = defaultConfigDir(), version = null
     }
   }
 
-  const resolvedVersion = version ?? detectVersion()
+  const desktop = client === "opencode" ? { installed: false, exe: null, version: null } : detectDesktop()
+  if (client === "desktop" && !desktop.installed) {
+    errors.push("OpenCode Desktop not found in the standard install locations")
+    act("install OpenCode Desktop first (https://opencode.ai/download), or use --client auto")
+    return { version: null, major: null, configDir: dir, configFile: cfgFile, actions, errors, dryRun, client: { mode: client, desktop: null } }
+  }
+
+  const resolvedVersion = version ?? detectVersion() ?? desktop.version
   const inferredMajor = config.plugin !== undefined ? 1 : 2
   const major = resolvedVersion ? Number(resolvedVersion.split(".")[0]) : inferredMajor
+  const clientInfo = {
+    mode: client,
+    desktop: desktop.installed ? { exe: desktop.exe, version: desktop.version } : null,
+  }
+  if (desktop.installed) act(`OpenCode Desktop ${desktop.version ?? "unknown"} detected at ${desktop.exe}`)
+  if (desktop.installed) act("desktop and CLI share the same config directory")
 
   if (dryRun) dry(`config dir: ${dir}`)
   if (!fs.existsSync(dir)) {
-    if (!dryRun) fs.mkdirSync(dir, { recursive: true })
-    act(`created config dir ${dir}`)
+    if (!dryRun) {
+      fs.mkdirSync(dir, { recursive: true })
+      act(`created config dir ${dir}`)
+    } else {
+      dry(`create config dir ${dir}`)
+    }
   }
 
   const stamp = new Date().toISOString().replace(/[:.]/g, "-")
@@ -151,7 +175,7 @@ export function installOpenCode({ configDir = defaultConfigDir(), version = null
       act(`plugins already contains "${PACKAGE_NAME}"`)
     }
     act("restart OpenCode; the /skills-doctor command and skills_doctor tool will be available")
-    return { version: resolvedVersion, major, configDir: dir, configFile: cfgFile, actions, errors, dryRun }
+    return { version: resolvedVersion, major, configDir: dir, configFile: cfgFile, actions, errors, dryRun, client: clientInfo }
   }
 
   // 1.x
@@ -226,7 +250,7 @@ export function installOpenCode({ configDir = defaultConfigDir(), version = null
   }
 
   act("restart OpenCode; the skills_doctor tool and /skills-doctor command will be available")
-  return { version: resolvedVersion, major, configDir: dir, configFile: cfgFile, actions, errors, dryRun }
+  return { version: resolvedVersion, major, configDir: dir, configFile: cfgFile, actions, errors, dryRun, client: clientInfo }
 }
 
 function removePackage(dir) {
@@ -243,7 +267,13 @@ function removePackage(dir) {
  * 撤销 install：移除配置里的插件条目、删除安装器生成的文件、可选卸载 npm 包。
  * 只删除「由安装器生成」的文件，用户自己改过的一律保留并提示。
  */
-export function uninstallOpenCode({ configDir = defaultConfigDir(), version = null, dryRun = false, removePackage: withPackage = true } = {}) {
+export function uninstallOpenCode({
+  configDir = defaultConfigDir(),
+  version = null,
+  dryRun = false,
+  removePackage: withPackage = true,
+  client = "auto",
+} = {}) {
   const dir = path.resolve(configDir)
   const actions = []
   const errors = []
@@ -262,7 +292,13 @@ export function uninstallOpenCode({ configDir = defaultConfigDir(), version = nu
     }
   }
 
-  const resolvedVersion = version ?? detectVersion()
+  const desktop = client === "opencode" ? { installed: false, exe: null, version: null } : detectDesktop()
+  const clientInfo = {
+    mode: client,
+    desktop: desktop.installed ? { exe: desktop.exe, version: desktop.version } : null,
+  }
+
+  const resolvedVersion = version ?? detectVersion() ?? desktop.version
   const inferredMajor = config.plugin !== undefined ? 1 : 2
   const major = resolvedVersion ? Number(resolvedVersion.split(".")[0]) : inferredMajor
   const stamp = new Date().toISOString().replace(/[:.]/g, "-")
@@ -280,7 +316,7 @@ export function uninstallOpenCode({ configDir = defaultConfigDir(), version = nu
       act(`"${PACKAGE_NAME}" is not configured in plugins`)
     }
     act("restart OpenCode to finish removal")
-    return { version: resolvedVersion, major, configDir: dir, configFile: cfgFile, actions, errors, dryRun }
+    return { version: resolvedVersion, major, configDir: dir, configFile: cfgFile, actions, errors, dryRun, client: clientInfo }
   }
 
   const pluginFile = path.join(dir, "plugins", PLUGIN_FILE)
@@ -338,5 +374,5 @@ export function uninstallOpenCode({ configDir = defaultConfigDir(), version = nu
   }
 
   act("restart OpenCode to finish removal")
-  return { version: resolvedVersion, major, configDir: dir, configFile: cfgFile, actions, errors, dryRun }
+  return { version: resolvedVersion, major, configDir: dir, configFile: cfgFile, actions, errors, dryRun, client: clientInfo }
 }

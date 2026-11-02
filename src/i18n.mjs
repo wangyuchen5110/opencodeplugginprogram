@@ -36,6 +36,7 @@ Options:
   --html [file]        check: write a self-contained HTML report (default: skills-report.html)
   --open               check: open the HTML report after writing it
   --config-dir <dir>   install/uninstall: OpenCode config directory (default: ~/.config/opencode)
+  --client <name>      install/uninstall: auto | opencode | desktop (default auto)
   --no-npm             install/uninstall: do not run npm (1.x)
   --apply              upgrade: run npm install -g opencode-skills-doctor@latest
   --no-update-check    skip the automatic update check for this run
@@ -111,6 +112,8 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
     "install.title": "OpenCode integration",
     "install.version": "  OpenCode: {version}",
     "install.configDir": "  config dir: {dir}",
+    "install.client": "  client: {client}",
+    "install.desktop": "  OpenCode Desktop: {version} ({exe})",
     "install.dryRun": "  (dry run: nothing is written)",
     "install.error": "  ✗ {error}",
     "install.failed": "Integration failed.",
@@ -245,6 +248,7 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
   --html [file]       check: 生成自包含 HTML 报告（默认 skills-report.html）
   --open              check: 写完报告后用浏览器打开
   --config-dir <dir>  install/uninstall: OpenCode 配置目录（默认 ~/.config/opencode）
+  --client <name>     install/uninstall: auto | opencode | desktop（默认 auto）
   --no-npm            install/uninstall: 不执行 npm（1.x）
   --apply             upgrade: 执行 npm install -g opencode-skills-doctor@latest
   --no-update-check   本次运行跳过自动更新检查
@@ -320,6 +324,8 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
     "install.title": "OpenCode 集成",
     "install.version": "  OpenCode: {version}",
     "install.configDir": "  配置目录: {dir}",
+    "install.client": "  客户端: {client}",
+    "install.desktop": "  OpenCode Desktop: {version}（{exe}）",
     "install.dryRun": "  （dry run：不会写入任何内容）",
     "install.error": "  ✗ {error}",
     "install.failed": "集成失败。",

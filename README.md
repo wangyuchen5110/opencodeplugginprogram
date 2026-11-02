@@ -23,7 +23,7 @@ Local scanner, linter, fixer, updater and **OpenCode plugin** for agent skills �
 | **Plan** | exact token savings: trim descriptions and/or hide skills, projected over N steps |
 | **Cost** | CLI: 0 tokens. Plugin: ~191 tokens/step for the tool definition, plus a one-time warning per session |
 | **Requirements** | Node ≥ 20, zero runtime dependencies |
-| **Quality** | 53 tests, CI on ubuntu/macos/windows × Node 20/22/24 |
+| **Quality** | 55 tests, CI on ubuntu/macos/windows × Node 20/22/24 |
 
 ## Why
 
@@ -264,6 +264,21 @@ It registers the same `skills_doctor` tool. 1.x plugins cannot register commands
 
 > The package root entry is the V2 plugin and requires OpenCode 2.x. The CLI works on both lines.
 
+### OpenCode Desktop
+
+The desktop app bundles the same OpenCode core and reads the **same config directory** as the CLI (`~/.config/opencode`; its UI settings live elsewhere), so one install covers both:
+
+```powershell
+npx opencode-skills-doctor install --client desktop
+```
+
+- detects the app in the standard install locations and reads its bundled core version from `resources/app.asar` (e.g. 1.17.11), then uses the matching plugin API;
+- writes the same plugin entry and `/skills-doctor`, `/skills-report`, `/skills-upgrade` commands as the CLI install — restart the desktop app afterwards;
+- `--client auto` (default) prefers the CLI version when both are installed; `--client opencode` skips desktop detection;
+- `uninstall --client desktop` reverses it.
+
+Verified on Windows: app at `%LOCALAPPDATA%\Programs\@opencode-aidesktop\OpenCode.exe`, sharing config with the `opencode` CLI.
+
 ### Deep integration (one command)
 
 ```powershell
@@ -492,7 +507,7 @@ Executing code is free, but the tool definition is part of the model's context. 
 ## Development and contributing
 
 ```powershell
-npm test          # 53 tests (node test/doctor.test.mjs)
+npm test          # 55 tests (node test/doctor.test.mjs)
 npm run bench     # lint timing for 100/500/1000 skills
 ```
 
