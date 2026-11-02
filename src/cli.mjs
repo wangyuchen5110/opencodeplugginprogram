@@ -9,6 +9,7 @@ import { auditSkills } from "./audit.mjs"
 import { loadConfig } from "./config.mjs"
 import { startMcpServer } from "./mcp.mjs"
 import { installOpenCode, uninstallOpenCode } from "./install.mjs"
+import { installDsh, uninstallDsh } from "./dsh.mjs"
 import { writeHtmlReport, openReport } from "./html.mjs"
 import { planBudget } from "./plan.mjs"
 import {
@@ -72,6 +73,8 @@ function parseArgs(argv) {
     checkOnly: false,
     prune: false,
     client: "auto",
+    profile: null,
+    dshHome: null,
     configDir: null,
     noNpm: false,
     html: null,
@@ -153,6 +156,12 @@ function parseArgs(argv) {
         options.client = String(args[++i] ?? "").toLowerCase()
         break
       }
+      case "--profile":
+        options.profile = args[++i] ?? null
+        break
+      case "--dsh-home":
+        options.dshHome = path.resolve(args[++i] ?? ".")
+        break
       case "--no-npm":
         options.noNpm = true
         break
@@ -591,8 +600,8 @@ export async function main(argv) {
     process.exit(2)
   }
 
-  if (!["auto", "opencode", "desktop"].includes(options.client)) {
-    console.error("unsupported --client: expected auto, opencode or desktop")
+  if (!["auto", "opencode", "desktop", "dsh"].includes(options.client)) {
+    console.error("unsupported --client: expected auto, opencode, desktop or dsh")
     process.exitCode = 2
     return
   }
@@ -613,6 +622,29 @@ export async function main(argv) {
 
   if (options.command === "mcp") {
     startMcpServer({ version: pkg.version })
+    return
+  }
+
+  if (options.command === "install" && options.client === "dsh") {
+    const result = installDsh({
+      home: options.dshHome ?? undefined,
+      profile: options.profile ?? undefined,
+      dryRun: options.dryRun,
+    })
+    if (options.json) {
+      console.log(JSON.stringify(result, null, 2))
+    } else {
+      console.log(bold(t("dsh.title")))
+      if (result.profile) console.log(dim(t("dsh.profile", { profile: result.profile })))
+      if (result.patchFile) console.log(dim(t("dsh.patch", { file: result.patchFile })))
+      if (result.skillDir) console.log(dim(t("dsh.skill", { dir: result.skillDir })))
+      if (result.dryRun) console.log(dim(t("install.dryRun")))
+      for (const action of result.actions) console.log(`  · ${action}`)
+      for (const error of result.errors) console.log(red(t("install.error", { error })))
+      console.log("")
+      console.log(result.errors.length ? red(t("dsh.failed")) : dim(t("dsh.restart")))
+    }
+    process.exitCode = result.errors.length ? 1 : 0
     return
   }
 
@@ -640,6 +672,27 @@ export async function main(argv) {
       for (const error of result.errors) console.log(red(t("install.error", { error })))
       console.log("")
       console.log(result.errors.length ? red(t("install.failed")) : dim(t("install.next")))
+    }
+    process.exitCode = result.errors.length ? 1 : 0
+    return
+  }
+
+  if (options.command === "uninstall" && options.client === "dsh") {
+    const result = uninstallDsh({
+      home: options.dshHome ?? undefined,
+      profile: options.profile ?? undefined,
+      dryRun: options.dryRun,
+    })
+    if (options.json) {
+      console.log(JSON.stringify(result, null, 2))
+    } else {
+      console.log(bold(t("dsh.uninstallTitle")))
+      if (result.profile) console.log(dim(t("dsh.profile", { profile: result.profile })))
+      if (result.dryRun) console.log(dim(t("install.dryRun")))
+      for (const action of result.actions) console.log(`  · ${action}`)
+      for (const error of result.errors) console.log(red(t("install.error", { error })))
+      console.log("")
+      console.log(result.errors.length ? red(t("dsh.failed")) : dim(t("dsh.restart")))
     }
     process.exitCode = result.errors.length ? 1 : 0
     return

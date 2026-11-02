@@ -23,7 +23,7 @@ OpenCode skill 的**本地检测器 + 更新器 + 修复器**，并附带 **Open
 | **规划** | 精确 token 节省：精简描述 / 隐藏 skill，按 N 步折算 |
 | **成本** | CLI 0 token；插件工具定义约 191/步，另有每会话一次预警 |
 | **要求** | Node ≥ 20，零运行时依赖 |
-| **质量** | 55 个测试，ubuntu/macos/windows × Node 20/22/24 CI |
+| **质量** | 57 个测试，ubuntu/macos/windows × Node 20/22/24 CI |
 
 ## 为什么需要它
 
@@ -342,7 +342,19 @@ args = ["-y", "opencode-skills-doctor", "mcp"]
 
 ### DeepSeek Harness（DSH）
 
-DSH 自带 MCP 客户端 bundle（`@deepseek-ai/dsh-mcp-client`）。在 profile 的 patch 里加一条，例如 `~/.dsh/profiles/<profile>/cordis.patch.yml`：
+一条命令同时装好 MCP 工具和「告诉模型什么时候该体检」的 skill：
+
+```powershell
+npx -y opencode-skills-doctor install --client dsh
+```
+
+它会找到 `~/.dsh/profiles/<profile>/cordis.patch.yml`（默认 `desktop`，否则用 `--profile <name>`），幂等地追加 `mcp-skills-doctor` 条目，并把 `skills-doctor-audit` 技能复制到 `~/.dsh/skills/`。重启 DSH 加载 MCP 工具；skill 目录有监听，无需重启。
+
+- 工具名 `mcp__skills_doctor__skills_doctor`，参数 `directory`、`budget`、`lang`、`global`、`html`；
+- `uninstall --client dsh` 同时移除配置条目和 skill；
+- `--dsh-home <dir>` 用于非默认的 DSH 主目录。
+
+手动兜底 —— 自己往 profile patch 里加：
 
 ```yaml
 - id: mcp-skills-doctor
@@ -354,19 +366,7 @@ DSH 自带 MCP 客户端 bundle（`@deepseek-ai/dsh-mcp-client`）。在 profile
     args: ["-y", "opencode-skills-doctor", "mcp"]
 ```
 
-重启 DSH。工具会以 `mcp__skills_doctor__skills_doctor` 出现，参数支持 `directory`、`budget`、`lang`、`global`、`html`。
-
 Windows 上如果 stdio 起不来 `npx`，改成 `command: cmd`、`args: ["/c", "npx", "-y", "opencode-skills-doctor", "mcp"]`。
-
-#### 可选技能包（告诉模型什么时候该体检）
-
-仓库自带一个 DSH skill：`skills/dsh-skills-doctor/`：
-
-```powershell
-Copy-Item -Recurse skills\dsh-skills-doctor "$env:USERPROFILE\.dsh\skills\"
-```
-
-DSH 会监听 skill 目录，`skills-doctor-audit` 无需重启就会出现在目录里。它会跑 `check`/`plan`、解释 token 影响，并且只提出修复建议 —— 不经确认不会改 skill 文件。
 
 ## 工作原理
 
@@ -517,7 +517,7 @@ token 是启发式估算，1200 是建议预算。可以用 `--budget` 或 `.ski
 ## 开发与贡献
 
 ```powershell
-npm test          # 55 个测试（node test/doctor.test.mjs）
+npm test          # 57 个测试（node test/doctor.test.mjs）
 npm run bench     # 100/500/1000 个 skill 的 lint 耗时
 ```
 

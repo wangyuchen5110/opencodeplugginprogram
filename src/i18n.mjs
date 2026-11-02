@@ -36,7 +36,9 @@ Options:
   --html [file]        check: write a self-contained HTML report (default: skills-report.html)
   --open               check: open the HTML report after writing it
   --config-dir <dir>   install/uninstall: OpenCode config directory (default: ~/.config/opencode)
-  --client <name>      install/uninstall: auto | opencode | desktop (default auto)
+  --client <name>      install/uninstall: auto | opencode | desktop | dsh (default auto)
+  --profile <name>     dsh: profile to install into (default: desktop, or the only one)
+  --dsh-home <dir>     dsh: DSH home directory (default: ~/.dsh)
   --no-npm             install/uninstall: do not run npm (1.x)
   --apply              upgrade: run npm install -g opencode-skills-doctor@latest
   --no-update-check    skip the automatic update check for this run
@@ -120,6 +122,13 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
     "install.next": "Restart OpenCode to activate.",
     "uninstall.title": "Remove OpenCode integration",
     "uninstall.next": "Restart OpenCode to finish removal.",
+    "dsh.title": "DSH integration",
+    "dsh.uninstallTitle": "Remove DSH integration",
+    "dsh.profile": "  profile: {profile}",
+    "dsh.patch": "  patch: {file}",
+    "dsh.skill": "  skill: {dir}",
+    "dsh.restart": "Restart DSH to load the MCP tool (the skill updates live).",
+    "dsh.failed": "DSH integration failed.",
     "update.toolAvailable":
       "  ! skills-doctor {latest} is available (you have {current}); update with: {cmd}  ·  {url}",
     "upgrade.title": "skills-doctor upgrade",
@@ -248,7 +257,9 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
   --html [file]       check: 生成自包含 HTML 报告（默认 skills-report.html）
   --open              check: 写完报告后用浏览器打开
   --config-dir <dir>  install/uninstall: OpenCode 配置目录（默认 ~/.config/opencode）
-  --client <name>     install/uninstall: auto | opencode | desktop（默认 auto）
+  --client <name>     install/uninstall: auto | opencode | desktop | dsh（默认 auto）
+  --profile <name>    dsh: 安装到哪个 profile（默认 desktop，或唯一的一个）
+  --dsh-home <dir>    dsh: DSH 主目录（默认 ~/.dsh）
   --no-npm            install/uninstall: 不执行 npm（1.x）
   --apply             upgrade: 执行 npm install -g opencode-skills-doctor@latest
   --no-update-check   本次运行跳过自动更新检查
@@ -332,6 +343,13 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
     "install.next": "重启 OpenCode 生效。",
     "uninstall.title": "撤销 OpenCode 集成",
     "uninstall.next": "重启 OpenCode 完成卸载。",
+    "dsh.title": "DSH 集成",
+    "dsh.uninstallTitle": "撤销 DSH 集成",
+    "dsh.profile": "  profile: {profile}",
+    "dsh.patch": "  patch: {file}",
+    "dsh.skill": "  skill: {dir}",
+    "dsh.restart": "重启 DSH 加载 MCP 工具（skill 会即时更新）。",
+    "dsh.failed": "DSH 集成失败。",
     "update.toolAvailable": "  ! skills-doctor 有新版本 {latest}（当前 {current}）；更新：{cmd}  ·  {url}",
     "upgrade.title": "skills-doctor 自更新",
     "upgrade.current": "  当前版本: {version}",

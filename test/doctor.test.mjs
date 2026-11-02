@@ -16,6 +16,7 @@ import { extractReferences } from "../src/refs.mjs"
 import { renderHtml, writeHtmlReport } from "../src/html.mjs"
 import { handleMessage, toolDefinition, startMcpServer, PROTOCOL_VERSION } from "../src/mcp.mjs"
 import { installOpenCode, uninstallOpenCode } from "../src/install.mjs"
+import { installDsh, uninstallDsh } from "../src/dsh.mjs"
 import { budgetWarning, resetWarningState } from "../src/warning.mjs"
 import { compareVersions, resolveMode, checkForUpdate, upgradeCommand } from "../src/self-update.mjs"
 import { planBudget, trimDescription } from "../src/plan.mjs"
@@ -1032,6 +1033,45 @@ test("desktop: 读取 asar 版本并识别安装路径", () => {
 test("CLI: --client 只接受 auto/opencode/desktop", async () => {
   const result = await runCli(["install", "--client", "nope", "--dry-run"])
   assert.equal(result.exitCode, 2)
+})
+
+test("dsh: 一条命令写入 MCP 配置和 skill，幂等且可卸载", () => {
+  const home = tmpdir()
+  write(path.join(home, "profiles", "desktop", "package.json"), '{"name":"p"}')
+  const patch = path.join(home, "profiles", "desktop", "cordis.patch.yml")
+  write(patch, "- id: keep\n  config:\n    a: 1\n")
+
+  const first = installDsh({ home, profile: "desktop" })
+  assert.equal(first.errors.length, 0)
+  const text = fs.readFileSync(patch, "utf8")
+  assert.match(text, /mcp-skills-doctor/)
+  assert.match(text, /serverName: skills_doctor/)
+  assert.match(text, /id: keep/)
+  assert.ok(fs.existsSync(path.join(home, "skills", "skills-doctor-audit", "SKILL.md")))
+
+  const second = installDsh({ home, profile: "desktop" })
+  assert.equal(second.errors.length, 0)
+  assert.ok(second.actions.some((action) => action.includes("already")))
+  assert.equal((fs.readFileSync(patch, "utf8").match(/mcp-skills-doctor/g) ?? []).length, 1)
+
+  const dry = installDsh({ home, profile: "desktop", dryRun: true })
+  assert.equal(dry.errors.length, 0)
+
+  const removed = uninstallDsh({ home, profile: "desktop" })
+  assert.equal(removed.errors.length, 0)
+  const after = fs.readFileSync(patch, "utf8")
+  assert.ok(!after.includes("mcp-skills-doctor"))
+  assert.match(after, /id: keep/)
+  assert.ok(!fs.existsSync(path.join(home, "skills", "skills-doctor-audit")))
+})
+
+test("CLI: install --client dsh 走 DSH 分支", async () => {
+  const home = tmpdir()
+  write(path.join(home, "profiles", "desktop", "package.json"), '{"name":"p"}')
+  const result = await runCli(["install", "--client", "dsh", "--dsh-home", home, "--dry-run", "--lang", "en"])
+  assert.equal(result.exitCode, 0)
+  assert.match(result.output, /DSH integration/)
+  assert.match(result.output, /mcp-skills-doctor/)
 })
 
 test("audit: 结构化结果与 markdown 渲染", () => {

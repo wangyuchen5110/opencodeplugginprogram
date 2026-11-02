@@ -23,7 +23,7 @@ Local scanner, linter, fixer, updater and **OpenCode plugin** for agent skills �
 | **Plan** | exact token savings: trim descriptions and/or hide skills, projected over N steps |
 | **Cost** | CLI: 0 tokens. Plugin: ~191 tokens/step for the tool definition, plus a one-time warning per session |
 | **Requirements** | Node ≥ 20, zero runtime dependencies |
-| **Quality** | 55 tests, CI on ubuntu/macos/windows × Node 20/22/24 |
+| **Quality** | 57 tests, CI on ubuntu/macos/windows × Node 20/22/24 |
 
 ## Why
 
@@ -342,7 +342,19 @@ It scans `.opencode/skills`, `.claude/skills` and `.agents/skills` (project and 
 
 ### DeepSeek Harness (DSH)
 
-DSH ships an MCP client bundle (`@deepseek-ai/dsh-mcp-client`). Add one entry to your profile patch, e.g. `~/.dsh/profiles/<profile>/cordis.patch.yml`:
+One command installs both the MCP tool and a skill that tells the model when to audit:
+
+```powershell
+npx -y opencode-skills-doctor install --client dsh
+```
+
+It locates `~/.dsh/profiles/<profile>/cordis.patch.yml` (default `desktop`; otherwise `--profile <name>`), appends the `mcp-skills-doctor` entry idempotently, and copies the `skills-doctor-audit` skill into `~/.dsh/skills/`. Restart DSH to load the MCP tool; the skill is watched and appears without a restart.
+
+- tool name `mcp__skills_doctor__skills_doctor`, arguments `directory`, `budget`, `lang`, `global`, `html`;
+- `uninstall --client dsh` removes both the patch entry and the skill;
+- `--dsh-home <dir>` for a non-standard DSH home.
+
+Manual fallback — add this to the profile patch yourself:
 
 ```yaml
 - id: mcp-skills-doctor
@@ -354,19 +366,7 @@ DSH ships an MCP client bundle (`@deepseek-ai/dsh-mcp-client`). Add one entry to
     args: ["-y", "opencode-skills-doctor", "mcp"]
 ```
 
-Restart DSH. The tool shows up as `mcp__skills_doctor__skills_doctor` and accepts `directory`, `budget`, `lang`, `global` and `html`.
-
 On Windows, if the stdio spawn cannot resolve `npx`, use `command: cmd` and `args: ["/c", "npx", "-y", "opencode-skills-doctor", "mcp"]`.
-
-#### Optional skill (tells the model when to audit)
-
-The repo ships a DSH skill at `skills/dsh-skills-doctor/`:
-
-```powershell
-Copy-Item -Recurse skills\dsh-skills-doctor "$env:USERPROFILE\.dsh\skills\"
-```
-
-DSH watches skill roots, so `skills-doctor-audit` appears in the catalog without a restart. The skill runs `check`/`plan`, explains the token impact, and only proposes fixes — it never edits skills without confirmation.
 
 ## How it works
 
@@ -517,7 +517,7 @@ Executing code is free, but the tool definition is part of the model's context. 
 ## Development and contributing
 
 ```powershell
-npm test          # 55 tests (node test/doctor.test.mjs)
+npm test          # 57 tests (node test/doctor.test.mjs)
 npm run bench     # lint timing for 100/500/1000 skills
 ```
 

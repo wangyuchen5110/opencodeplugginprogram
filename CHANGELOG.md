@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.0
+
+- DSH: `install --client dsh` is now a one-command setup — detects the DSH profile, appends the `mcp-skills-doctor` entry to `cordis.patch.yml` idempotently, and installs the `skills-doctor-audit` skill into `~/.dsh/skills/`.
+- DSH: `uninstall --client dsh` removes the patch entry and generated skill; `--profile` and `--dsh-home` supported.
+- Tests: 57.
+
 ## 0.5.2
 
 - DSH: ship an optional `skills-doctor-audit` skill under `skills/dsh-skills-doctor/` that teaches the model when to audit and how to interpret `check`/`plan`.
