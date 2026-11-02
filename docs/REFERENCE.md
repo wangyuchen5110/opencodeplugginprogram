@@ -322,13 +322,15 @@ Claude Code (`.mcp.json` in the project, or your MCP config):
 }
 ```
 
-Codex (`~/.codex/config.toml`):
+Codex (`~/.codex/config.toml`, or `codex mcp add skills-doctor -- npx -y opencode-skills-doctor mcp`):
 
 ```toml
 [mcp_servers.skills-doctor]
 command = "npx"
 args = ["-y", "opencode-skills-doctor", "mcp"]
 ```
+
+Verified with codex-cli 0.145: `codex mcp list` shows the server as `enabled` (stdio).
 
 Any other MCP client: run `npx -y opencode-skills-doctor mcp` and allow the `skills_doctor` tool.
 
@@ -395,7 +397,16 @@ skills-doctor check --root .        # covers your Grok project skills
 skills-doctor check --root $HOME    # covers ~/.grok/skills and other user-level skills
 ```
 
-No install step is needed — Grok loads `SKILL.md` packages natively. If your Grok build has MCP enabled, you can additionally register the MCP server above to let the model call `skills_doctor` itself.
+No install step is needed — Grok loads `SKILL.md` packages natively.
+
+Grok 1.0+ also speaks MCP. Register the tool once:
+
+```powershell
+grok mcp add skills-doctor -- npx -y opencode-skills-doctor mcp
+grok mcp doctor skills-doctor   # ✓ server started · handshake OK · 1 tool discovered
+```
+
+Grok namespaces tools as `<server>__<tool>`, so call `skills_doctor__skills_doctor`. The config lands in `~/.grok/config.toml` as `[mcp_servers.skills-doctor]`.
 
 ## Rules
 

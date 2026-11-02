@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.3
+
+- Docs: document the verified Grok CLI MCP setup (`grok mcp add skills-doctor -- npx -y opencode-skills-doctor mcp`, `grok mcp doctor`) and the `skills_doctor__skills_doctor` tool name.
+- Docs: document `codex mcp add` and the verified `codex mcp list` state.
+
 ## 0.6.2
 
 - Docs: new landing-page README with a banner, badges, HTML-report screenshot, quick start, integrations and a command table; the previous detailed README moved to `docs/REFERENCE.md`.

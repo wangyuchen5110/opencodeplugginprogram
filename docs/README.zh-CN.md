@@ -339,13 +339,15 @@ Claude Code（项目里的 `.mcp.json`，或你的 MCP 配置）：
 }
 ```
 
-Codex（`~/.codex/config.toml`）：
+Codex（`~/.codex/config.toml`，或 `codex mcp add skills-doctor -- npx -y opencode-skills-doctor mcp`）：
 
 ```toml
 [mcp_servers.skills-doctor]
 command = "npx"
 args = ["-y", "opencode-skills-doctor", "mcp"]
 ```
+
+已用 codex-cli 0.145 验证：`codex mcp list` 显示该 server 为 `enabled`（stdio）。
 
 其他 MCP 客户端：启动 `npx -y opencode-skills-doctor mcp` 并允许 `skills_doctor` 工具即可。
 
@@ -412,7 +414,16 @@ skills-doctor check --root .        # 覆盖当前项目的 Grok skill
 skills-doctor check --root $HOME    # 覆盖 ~/.grok/skills 等用户级 skill
 ```
 
-不需要额外安装——Grok 原生加载 `SKILL.md`。如果该 Grok 版本支持 MCP，还可以把上面的 MCP server 接进去，让模型自己调用 `skills_doctor`。
+不需要额外安装——Grok 原生加载 `SKILL.md`。
+
+Grok 1.0+ 也支持 MCP，注册一次即可：
+
+```powershell
+grok mcp add skills-doctor -- npx -y opencode-skills-doctor mcp
+grok mcp doctor skills-doctor   # ✓ server started · handshake OK · 1 tool discovered
+```
+
+Grok 的工具命名是 `<server>__<tool>`，所以调用 `skills_doctor__skills_doctor`；配置写入 `~/.grok/config.toml` 的 `[mcp_servers.skills-doctor]`。
 
 ## 检测规则
 
