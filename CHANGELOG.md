@@ -8,6 +8,7 @@
 - Tool descriptions (`mcp`, both plugin entries) now list every supported agent - OpenCode, Claude Code, Grok, Cursor, Hermes, Kimi, DSH - and stay short enough to keep the tool schema cheap.
 - Docs: discovery list, DSH root, and a pointer to the OpenClaw wrapper.
 - Docs: privacy statement in the READMEs and both SECURITY files - runs 100% locally, no telemetry, does not read chats/sessions/credentials, uploads nothing; the only optional network calls are `update` (your catalogs) and the npm version check (disableable).
+- Docs: landing-page refresh - centered banner hero, `for-the-badge` shields, local-only/no-telemetry/no-user-data badges, contents list, and a Mermaid pipeline diagram; the Chinese page mirrors it.
 - Tests: 63.
 
 ## 0.8.1
