@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.1
+
+- `--extra-dir <dir>` (repeatable) scans additional skill roots; `auditSkills({ extraDirs })` exposes the same option for wrappers.
+- Package exports `./cli` so downstream clients can reuse the full CLI.
+- Tests: 61.
+
 ## 0.8.0
 
 - Kimi Code support: scan `~/.kimi-code/skills` and project `.kimi-code/skills`; `install --client kimi` merges the MCP entry into `~/.kimi-code/mcp.json` and installs the audit skill; `uninstall --client kimi`; `--kimi-home`.

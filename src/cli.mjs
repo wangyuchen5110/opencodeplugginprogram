@@ -77,6 +77,7 @@ function parseArgs(argv) {
     profile: null,
     dshHome: null,
     kimiHome: null,
+    extraDirs: [],
     configDir: null,
     noNpm: false,
     html: null,
@@ -166,6 +167,9 @@ function parseArgs(argv) {
         break
       case "--kimi-home":
         options.kimiHome = path.resolve(args[++i] ?? ".")
+        break
+      case "--extra-dir":
+        options.extraDirs.push(path.resolve(args[++i] ?? "."))
         break
       case "--no-npm":
         options.noNpm = true
@@ -814,6 +818,7 @@ export async function main(argv) {
       configPath: options.config,
       budget: options.budget,
       staleDays: options.staleDays,
+      extraDirs: options.extraDirs,
     })
     const plan = planBudget(audit, { descTarget: options.descTarget, steps: options.steps })
     if (options.json) console.log(JSON.stringify(plan, null, 2))
@@ -829,6 +834,7 @@ export async function main(argv) {
       configPath: options.config,
       budget: options.budget,
       staleDays: options.staleDays,
+      extraDirs: options.extraDirs,
     })
     const result = buildCheckResult(audit, options)
 
@@ -855,7 +861,7 @@ export async function main(argv) {
     return
   }
 
-  const discovered = scanAll(discoverSources({ cwd, includeGlobal: options.global }))
+  const discovered = scanAll(discoverSources({ cwd, includeGlobal: options.global, extraDirs: options.extraDirs }))
   const managedInfo = inspectManaged(discovered.scans, { t })
 
   if (options.command === "scan") {
@@ -893,6 +899,7 @@ export async function main(argv) {
       configPath: options.config,
       budget: options.budget,
       staleDays: options.staleDays,
+      extraDirs: options.extraDirs,
     })
     process.exitCode = runFix(audit, options, t)
   }

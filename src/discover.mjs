@@ -128,7 +128,7 @@ function isUnder(parent, child) {
  * 14. 项目 .opencode/skills（项目根 → cwd）
  * 15. opencode.json(c) 里的 skills 数组 / skills.paths
  */
-export function discoverSources({ cwd = process.cwd(), home = os.homedir(), includeGlobal = true } = {}) {
+export function discoverSources({ cwd = process.cwd(), home = os.homedir(), includeGlobal = true, extraDirs = [] } = {}) {
   const projectRoot = findProjectRoot(cwd) ?? path.resolve(cwd)
   const projectChain = pathChain(projectRoot, cwd)
   const sources = []
@@ -163,6 +163,12 @@ export function discoverSources({ cwd = process.cwd(), home = os.homedir(), incl
 
   if (includeGlobal) addSource("opencode-global", "global", path.join(home, ".config", "opencode", "skills"))
   for (const dir of projectChain) addSource("opencode-project", "project", path.join(dir, ".opencode", "skills"))
+
+  for (const dir of extraDirs) {
+    if (typeof dir !== "string" || !dir.trim()) continue
+    const abs = path.resolve(dir)
+    if (fs.existsSync(abs)) addSource("extra", isUnder(projectRoot, abs) ? "project" : "global", abs)
+  }
 
   const configFiles = []
   if (includeGlobal) {

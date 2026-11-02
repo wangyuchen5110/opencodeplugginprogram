@@ -16,13 +16,14 @@ export function auditSkills({
   configPath = null,
   budget = null,
   staleDays = null,
+  extraDirs = [],
 } = {}) {
   const loaded = loadConfig(cwd, configPath)
   const config = loaded.config
   const resolvedLang = normalizeLang(lang) ?? normalizeLang(config.lang) ?? detectLang()
   const t = translator(resolvedLang)
 
-  const discovered = scanAll(discoverSources({ cwd, includeGlobal }))
+  const discovered = scanAll(discoverSources({ cwd, includeGlobal, extraDirs }))
   const managedInfo = inspectManaged(discovered.scans, { t })
 
   const effectiveBudget = Number.isFinite(budget) && budget > 0 ? budget : config.budget ?? 1200

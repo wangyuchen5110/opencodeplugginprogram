@@ -40,6 +40,7 @@ Options:
   --profile <name>     dsh: profile to install into (default: desktop, or the only one)
   --dsh-home <dir>     dsh: DSH home directory (default: ~/.dsh)
   --kimi-home <dir>    kimi: Kimi Code home (default: ~/.kimi-code or $KIMI_CODE_HOME)
+  --extra-dir <dir>    scan an additional skill directory (repeatable; e.g. ~/.openclaw/skills)
   --no-npm             install/uninstall: do not run npm (1.x)
   --apply              upgrade: run npm install -g opencode-skills-doctor@latest
   --no-update-check    skip the automatic update check for this run
@@ -269,6 +270,7 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
   --profile <name>    dsh: 安装到哪个 profile（默认 desktop，或唯一的一个）
   --dsh-home <dir>    dsh: DSH 主目录（默认 ~/.dsh）
   --kimi-home <dir>   kimi: Kimi Code 主目录（默认 ~/.kimi-code 或 $KIMI_CODE_HOME）
+  --extra-dir <dir>   额外扫描一个 skill 目录（可重复；例如 ~/.openclaw/skills）
   --no-npm            install/uninstall: 不执行 npm（1.x）
   --apply             upgrade: 执行 npm install -g opencode-skills-doctor@latest
   --no-update-check   本次运行跳过自动更新检查

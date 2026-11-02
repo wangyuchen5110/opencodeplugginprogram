@@ -443,6 +443,15 @@ test("discovery: 扫描 Grok / Cursor / Hermes 的 skill 目录", () => {
   ])
 })
 
+test("discovery: extraDirs 扫描额外目录", () => {
+  const home = tmpdir()
+  const project = tmpdir()
+  fs.mkdirSync(path.join(project, ".git"))
+  skill(path.join(home, "extra-skills"), "extra-one")
+  const found = scanAll(discoverSources({ cwd: project, home, extraDirs: [path.join(home, "extra-skills")] }))
+  assert.ok(found.skills.some((item) => item.id === "extra-one"))
+})
+
 test("工具函数: findProjectRoot / pathChain", () => {
   const root = tmpdir()
   fs.mkdirSync(path.join(root, ".git"))
