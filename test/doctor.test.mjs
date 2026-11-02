@@ -415,7 +415,7 @@ test("MCP: tools/call 支持 html 参数落盘", async () => {
   assert.match(response.result.content[0].text, /HTML report written to/)
 })
 
-test("discovery: 扫描 Grok 与 Cursor 的 skill 目录", () => {
+test("discovery: 扫描 Grok / Cursor / Hermes 的 skill 目录", () => {
   const home = tmpdir()
   const project = tmpdir()
   fs.mkdirSync(path.join(project, ".git"))
@@ -423,10 +423,19 @@ test("discovery: 扫描 Grok 与 Cursor 的 skill 目录", () => {
   skill(path.join(project, ".grok", "skills"), "grok-project")
   skill(path.join(home, ".cursor", "skills"), "cursor-user")
   skill(path.join(project, ".cursor", "skills"), "cursor-project")
+  skill(path.join(home, ".hermes", "skills"), "hermes-user")
+  skill(path.join(project, ".hermes", "skills"), "hermes-project")
 
   const found = scanAll(discoverSources({ cwd: project, home }))
   const ids = found.skills.map((item) => item.id).sort()
-  assert.deepEqual(ids, ["cursor-project", "cursor-user", "grok-project", "grok-user"])
+  assert.deepEqual(ids, [
+    "cursor-project",
+    "cursor-user",
+    "grok-project",
+    "grok-user",
+    "hermes-project",
+    "hermes-user",
+  ])
 })
 
 test("工具函数: findProjectRoot / pathChain", () => {

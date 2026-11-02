@@ -10,7 +10,7 @@ Local scanner, linter, fixer, updater and **OpenCode plugin** for agent skills �
 |---|---|
 | **What it is** | Audit, fix and update the skills your coding agent loads |
 | **Interfaces** | CLI · OpenCode plugin (1.x / 2.x) · MCP server (Claude Code, Codex, DSH, …) · Grok CLI compatible |
-| **Skill sources** | `.opencode/skills`, `.claude/skills`, `.agents/skills`, `.grok/skills`, `.cursor/skills`, `opencode.json(c)` entries, HTTP catalogs |
+| **Skill sources** | `.opencode/skills`, `.claude/skills`, `.agents/skills`, `.grok/skills`, `.cursor/skills`, `.hermes/skills`, `opencode.json(c)` entries, HTTP catalogs |
 | **What it finds** | shadowed IDs, duplicates, long descriptions, oversized bodies, per-step token budget, broken file references, invalid frontmatter, empty bodies, stale skills |
 | **What it fixes** | archives shadowed definitions (reversible), hides low-frequency skills, syncs catalogs with drift detection |
 | **Reports** | terminal, JSON, or a self-contained HTML report (`--html [file] --open`) |
@@ -408,6 +408,19 @@ grok mcp doctor skills-doctor   # ✓ server started · handshake OK · 1 tool d
 
 Grok namespaces tools as `<server>__<tool>`, so call `skills_doctor__skills_doctor`. The config lands in `~/.grok/config.toml` as `[mcp_servers.skills-doctor]`.
 
+### Hermes Agent (Nous Research)
+
+Hermes reads MCP servers from `~/.hermes/config.yaml`:
+
+```yaml
+mcp_servers:
+  skills_doctor:
+    command: "npx"
+    args: ["-y", "opencode-skills-doctor", "mcp"]
+```
+
+Hermes names tools `mcp_<server>_<tool>`, so the tool is `mcp_skills_doctor_skills_doctor`. Its skills live in `~/.hermes/skills` (including imported `openclaw-imports/`) and project `.hermes/skills`; `check` scans both.
+
 ## Rules
 
 | Rule | Level | Meaning |
@@ -451,9 +464,11 @@ Grok namespaces tools as `<server>__<tool>`, so call `skills_doctor__skills_doct
 6. project `.cursor/skills`
 7. `~/.grok/skills`
 8. project `.grok/skills`
-9. `~/.config/opencode/skills`
-10. project `.opencode/skills`
-11. the `skills` array in `opencode.json(c)` (2.x) or `skills.paths` (1.x); relative paths resolve from the working directory; supports `~/`, absolute paths and HTTP catalogs
+9. `~/.hermes/skills`
+10. project `.hermes/skills`
+11. `~/.config/opencode/skills`
+12. project `.opencode/skills`
+13. the `skills` array in `opencode.json(c)` (2.x) or `skills.paths` (1.x); relative paths resolve from the working directory; supports `~/`, absolute paths and HTTP catalogs
 
 ## JSON output
 

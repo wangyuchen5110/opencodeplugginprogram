@@ -425,6 +425,19 @@ grok mcp doctor skills-doctor   # ✓ server started · handshake OK · 1 tool d
 
 Grok 的工具命名是 `<server>__<tool>`，所以调用 `skills_doctor__skills_doctor`；配置写入 `~/.grok/config.toml` 的 `[mcp_servers.skills-doctor]`。
 
+### Hermes Agent（Nous Research）
+
+Hermes 从 `~/.hermes/config.yaml` 读取 MCP server：
+
+```yaml
+mcp_servers:
+  skills_doctor:
+    command: "npx"
+    args: ["-y", "opencode-skills-doctor", "mcp"]
+```
+
+Hermes 的工具命名是 `mcp_<server>_<tool>`，即 `mcp_skills_doctor_skills_doctor`。它的 skill 在 `~/.hermes/skills`（含导入的 `openclaw-imports/`）和项目 `.hermes/skills`，`check` 都会扫描。
+
 ## 检测规则
 
 | 规则 | 级别 | 含义 |

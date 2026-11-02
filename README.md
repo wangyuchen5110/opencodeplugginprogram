@@ -116,6 +116,7 @@ All commands accept `--json`, `--lang en|zh`, `--budget`, `--root` and `--no-glo
 | **DeepSeek Harness** | `install --client dsh` adds the MCP entry and the `skills-doctor-audit` skill |
 | **Claude Code / Codex** | MCP server (`npx -y opencode-skills-doctor mcp`) |
 | **Grok CLI / Cursor** | their skill roots are scanned natively |
+| **Hermes Agent** | MCP entry in `~/.hermes/config.yaml`; `~/.hermes/skills` is scanned |
 
 ## Why it is safe
 

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.0
+
+- Discovery: scan Hermes Agent skill roots (`~/.hermes/skills`, project `.hermes/skills`), including imported skills.
+- Docs: Hermes MCP setup (`~/.hermes/config.yaml`, tool `mcp_skills_doctor_skills_doctor`) and the platform matrix.
+
 ## 0.6.3
 
 - Docs: document the verified Grok CLI MCP setup (`grok mcp add skills-doctor -- npx -y opencode-skills-doctor mcp`, `grok mcp doctor`) and the `skills_doctor__skills_doctor` tool name.
