@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.2
+
+- Docs: new landing-page README with a banner, badges, HTML-report screenshot, quick start, integrations and a command table; the previous detailed README moved to `docs/REFERENCE.md`.
+- Docs: added `docs/assets/banner.svg`, `docs/assets/report.png` and `docs/assets/social-preview.png`; Chinese README gets the banner too.
+
 ## 0.6.1
 
 - DSH: fix the patch format — new entries must be wrapped in `- insert:`; the previous bare row was treated as an unknown-id patch and skipped by app-boot. `install --client dsh` now writes the correct block and migrates legacy bare rows in place.

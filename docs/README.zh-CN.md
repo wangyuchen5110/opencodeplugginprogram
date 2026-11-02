@@ -1,4 +1,15 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/wangyuchen5110/opencodeplugginprogram/main/docs/assets/banner.svg" alt="skills-doctor" width="100%">
+</p>
+
+<p align="center">
+  <b>审计、修复、更新你的 coding agent 加载的 skill。</b><br>
+  量出每步 token 税，找出遮蔽重复和断链，再安全地修掉。
+</p>
+
 # skills-doctor
+
+[English](../README.md) · [完整英文参考](REFERENCE.md)
 
 [![npm](https://img.shields.io/npm/v/opencode-skills-doctor)](https://www.npmjs.com/package/opencode-skills-doctor)
 [![downloads](https://img.shields.io/npm/dw/opencode-skills-doctor)](https://www.npmjs.com/package/opencode-skills-doctor)
