@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.0
+
+- Kimi Code support: scan `~/.kimi-code/skills` and project `.kimi-code/skills`; `install --client kimi` merges the MCP entry into `~/.kimi-code/mcp.json` and installs the audit skill; `uninstall --client kimi`; `--kimi-home`.
+- Docs: Kimi Code section in both READMEs.
+- Tests: 60.
+
 ## 0.7.0
 
 - Discovery: scan Hermes Agent skill roots (`~/.hermes/skills`, project `.hermes/skills`), including imported skills.

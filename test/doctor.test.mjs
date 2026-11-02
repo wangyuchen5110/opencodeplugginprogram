@@ -17,6 +17,7 @@ import { renderHtml, writeHtmlReport } from "../src/html.mjs"
 import { handleMessage, toolDefinition, startMcpServer, PROTOCOL_VERSION } from "../src/mcp.mjs"
 import { installOpenCode, uninstallOpenCode } from "../src/install.mjs"
 import { installDsh, uninstallDsh } from "../src/dsh.mjs"
+import { installKimi, uninstallKimi } from "../src/kimi.mjs"
 import { budgetWarning, resetWarningState } from "../src/warning.mjs"
 import { compareVersions, resolveMode, checkForUpdate, upgradeCommand } from "../src/self-update.mjs"
 import { planBudget, trimDescription } from "../src/plan.mjs"
@@ -425,6 +426,8 @@ test("discovery: 扫描 Grok / Cursor / Hermes 的 skill 目录", () => {
   skill(path.join(project, ".cursor", "skills"), "cursor-project")
   skill(path.join(home, ".hermes", "skills"), "hermes-user")
   skill(path.join(project, ".hermes", "skills"), "hermes-project")
+  skill(path.join(home, ".kimi-code", "skills"), "kimi-user")
+  skill(path.join(project, ".kimi-code", "skills"), "kimi-project")
 
   const found = scanAll(discoverSources({ cwd: project, home }))
   const ids = found.skills.map((item) => item.id).sort()
@@ -435,6 +438,8 @@ test("discovery: 扫描 Grok / Cursor / Hermes 的 skill 目录", () => {
     "grok-user",
     "hermes-project",
     "hermes-user",
+    "kimi-project",
+    "kimi-user",
   ])
 })
 
@@ -1112,6 +1117,36 @@ test("CLI: install --client dsh 走 DSH 分支", async () => {
   assert.equal(result.exitCode, 0)
   assert.match(result.output, /DSH integration/)
   assert.match(result.output, /mcp-skills-doctor/)
+})
+
+test("kimi: 写入 mcp.json 和 skill，幂等且可卸载", () => {
+  const home = tmpdir()
+  write(path.join(home, "mcp.json"), JSON.stringify({ mcpServers: { keep: { command: "node", args: ["x.js"] } } }, null, 2))
+
+  const first = installKimi({ home })
+  assert.equal(first.errors.length, 0)
+  const cfg = JSON.parse(fs.readFileSync(path.join(home, "mcp.json"), "utf8"))
+  assert.deepEqual(cfg.mcpServers["skills-doctor"], { command: "npx", args: ["-y", "opencode-skills-doctor", "mcp"] })
+  assert.ok(cfg.mcpServers.keep)
+  assert.ok(fs.existsSync(path.join(home, "skills", "skills-doctor-audit", "SKILL.md")))
+
+  const second = installKimi({ home })
+  assert.ok(second.actions.some((action) => action.includes("already")))
+
+  const removed = uninstallKimi({ home })
+  assert.equal(removed.errors.length, 0)
+  const after = JSON.parse(fs.readFileSync(path.join(home, "mcp.json"), "utf8"))
+  assert.equal(after.mcpServers["skills-doctor"], undefined)
+  assert.ok(after.mcpServers.keep)
+  assert.ok(!fs.existsSync(path.join(home, "skills", "skills-doctor-audit")))
+})
+
+test("CLI: install --client kimi 走 Kimi 分支", async () => {
+  const home = tmpdir()
+  const result = await runCli(["install", "--client", "kimi", "--kimi-home", home, "--dry-run", "--lang", "en"])
+  assert.equal(result.exitCode, 0)
+  assert.match(result.output, /Kimi Code integration/)
+  assert.match(result.output, /mcp\.json/)
 })
 
 test("audit: 结构化结果与 markdown 渲染", () => {

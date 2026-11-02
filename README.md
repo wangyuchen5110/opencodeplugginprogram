@@ -117,6 +117,7 @@ All commands accept `--json`, `--lang en|zh`, `--budget`, `--root` and `--no-glo
 | **Claude Code / Codex** | MCP server (`npx -y opencode-skills-doctor mcp`) |
 | **Grok CLI / Cursor** | their skill roots are scanned natively |
 | **Hermes Agent** | MCP entry in `~/.hermes/config.yaml`; `~/.hermes/skills` is scanned |
+| **Kimi Code** | `install --client kimi` writes `~/.kimi-code/mcp.json` + the audit skill |
 
 ## Why it is safe
 

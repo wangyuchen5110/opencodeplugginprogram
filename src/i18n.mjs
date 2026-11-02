@@ -36,9 +36,10 @@ Options:
   --html [file]        check: write a self-contained HTML report (default: skills-report.html)
   --open               check: open the HTML report after writing it
   --config-dir <dir>   install/uninstall: OpenCode config directory (default: ~/.config/opencode)
-  --client <name>      install/uninstall: auto | opencode | desktop | dsh (default auto)
+  --client <name>      install/uninstall: auto | opencode | desktop | dsh | kimi (default auto)
   --profile <name>     dsh: profile to install into (default: desktop, or the only one)
   --dsh-home <dir>     dsh: DSH home directory (default: ~/.dsh)
+  --kimi-home <dir>    kimi: Kimi Code home (default: ~/.kimi-code or $KIMI_CODE_HOME)
   --no-npm             install/uninstall: do not run npm (1.x)
   --apply              upgrade: run npm install -g opencode-skills-doctor@latest
   --no-update-check    skip the automatic update check for this run
@@ -129,6 +130,13 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
     "dsh.skill": "  skill: {dir}",
     "dsh.restart": "Restart DSH to load the MCP tool (HMR reloads the patch when enabled; the skill updates live).",
     "dsh.failed": "DSH integration failed.",
+    "kimi.title": "Kimi Code integration",
+    "kimi.uninstallTitle": "Remove Kimi Code integration",
+    "kimi.home": "  home: {dir}",
+    "kimi.mcp": "  mcp: {file}",
+    "kimi.skill": "  skill: {dir}",
+    "kimi.restart": "Start a new Kimi Code session to load the MCP tool.",
+    "kimi.failed": "Kimi Code integration failed.",
     "update.toolAvailable":
       "  ! skills-doctor {latest} is available (you have {current}); update with: {cmd}  ·  {url}",
     "upgrade.title": "skills-doctor upgrade",
@@ -257,9 +265,10 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
   --html [file]       check: 生成自包含 HTML 报告（默认 skills-report.html）
   --open              check: 写完报告后用浏览器打开
   --config-dir <dir>  install/uninstall: OpenCode 配置目录（默认 ~/.config/opencode）
-  --client <name>     install/uninstall: auto | opencode | desktop | dsh（默认 auto）
+  --client <name>     install/uninstall: auto | opencode | desktop | dsh | kimi（默认 auto）
   --profile <name>    dsh: 安装到哪个 profile（默认 desktop，或唯一的一个）
   --dsh-home <dir>    dsh: DSH 主目录（默认 ~/.dsh）
+  --kimi-home <dir>   kimi: Kimi Code 主目录（默认 ~/.kimi-code 或 $KIMI_CODE_HOME）
   --no-npm            install/uninstall: 不执行 npm（1.x）
   --apply             upgrade: 执行 npm install -g opencode-skills-doctor@latest
   --no-update-check   本次运行跳过自动更新检查
@@ -350,6 +359,13 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
     "dsh.skill": "  skill: {dir}",
     "dsh.restart": "重启 DSH 加载 MCP 工具（启用 HMR 时会自动重载 patch；skill 即时更新）。",
     "dsh.failed": "DSH 集成失败。",
+    "kimi.title": "Kimi Code 集成",
+    "kimi.uninstallTitle": "撤销 Kimi Code 集成",
+    "kimi.home": "  主目录: {dir}",
+    "kimi.mcp": "  mcp: {file}",
+    "kimi.skill": "  skill: {dir}",
+    "kimi.restart": "开一个新的 Kimi Code 会话加载 MCP 工具。",
+    "kimi.failed": "Kimi Code 集成失败。",
     "update.toolAvailable": "  ! skills-doctor 有新版本 {latest}（当前 {current}）；更新：{cmd}  ·  {url}",
     "upgrade.title": "skills-doctor 自更新",
     "upgrade.current": "  当前版本: {version}",

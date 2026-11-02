@@ -122,9 +122,11 @@ function isUnder(parent, child) {
  *  8. 项目 .grok/skills
  *  9. ~/.hermes/skills（Hermes Agent）
  * 10. 项目 .hermes/skills
- * 11. ~/.config/opencode/skills
- * 12. 项目 .opencode/skills（项目根 → cwd）
- * 13. opencode.json(c) 里的 skills 数组 / skills.paths
+ * 11. ~/.kimi-code/skills（Kimi Code）
+ * 12. 项目 .kimi-code/skills
+ * 13. ~/.config/opencode/skills
+ * 14. 项目 .opencode/skills（项目根 → cwd）
+ * 15. opencode.json(c) 里的 skills 数组 / skills.paths
  */
 export function discoverSources({ cwd = process.cwd(), home = os.homedir(), includeGlobal = true } = {}) {
   const projectRoot = findProjectRoot(cwd) ?? path.resolve(cwd)
@@ -155,6 +157,9 @@ export function discoverSources({ cwd = process.cwd(), home = os.homedir(), incl
 
   if (includeGlobal) addSource("hermes-global", "global", path.join(home, ".hermes", "skills"))
   for (const dir of projectChain) addSource("hermes-project", "project", path.join(dir, ".hermes", "skills"))
+
+  if (includeGlobal) addSource("kimi-global", "global", path.join(home, ".kimi-code", "skills"))
+  for (const dir of projectChain) addSource("kimi-project", "project", path.join(dir, ".kimi-code", "skills"))
 
   if (includeGlobal) addSource("opencode-global", "global", path.join(home, ".config", "opencode", "skills"))
   for (const dir of projectChain) addSource("opencode-project", "project", path.join(dir, ".opencode", "skills"))

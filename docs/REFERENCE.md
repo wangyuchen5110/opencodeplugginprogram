@@ -10,7 +10,7 @@ Local scanner, linter, fixer, updater and **OpenCode plugin** for agent skills �
 |---|---|
 | **What it is** | Audit, fix and update the skills your coding agent loads |
 | **Interfaces** | CLI · OpenCode plugin (1.x / 2.x) · MCP server (Claude Code, Codex, DSH, …) · Grok CLI compatible |
-| **Skill sources** | `.opencode/skills`, `.claude/skills`, `.agents/skills`, `.grok/skills`, `.cursor/skills`, `.hermes/skills`, `opencode.json(c)` entries, HTTP catalogs |
+| **Skill sources** | `.opencode/skills`, `.claude/skills`, `.agents/skills`, `.grok/skills`, `.cursor/skills`, `.hermes/skills`, `.kimi-code/skills`, `opencode.json(c)` entries, HTTP catalogs |
 | **What it finds** | shadowed IDs, duplicates, long descriptions, oversized bodies, per-step token budget, broken file references, invalid frontmatter, empty bodies, stale skills |
 | **What it fixes** | archives shadowed definitions (reversible), hides low-frequency skills, syncs catalogs with drift detection |
 | **Reports** | terminal, JSON, or a self-contained HTML report (`--html [file] --open`) |
@@ -421,6 +421,16 @@ mcp_servers:
 
 Hermes names tools `mcp_<server>_<tool>`, so the tool is `mcp_skills_doctor_skills_doctor`. Its skills live in `~/.hermes/skills` (including imported `openclaw-imports/`) and project `.hermes/skills`; `check` scans both.
 
+### Kimi Code (Moonshot)
+
+One command writes the MCP entry and the audit skill:
+
+```powershell
+npx -y opencode-skills-doctor install --client kimi
+```
+
+It merges `skills-doctor` into `~/.kimi-code/mcp.json` (or `$KIMI_CODE_HOME/mcp.json`) and copies the skill to `$KIMI_CODE_HOME/skills/`. Start a new Kimi Code session afterwards; the tool is `mcp__skills_doctor__skills_doctor` (Kimi uses the same `mcp__<server>__<tool>` shape as Claude Code). `check` also scans `~/.kimi-code/skills` and project `.kimi-code/skills`; `uninstall --client kimi` reverses both.
+
 ## Rules
 
 | Rule | Level | Meaning |
@@ -466,9 +476,11 @@ Hermes names tools `mcp_<server>_<tool>`, so the tool is `mcp_skills_doctor_skil
 8. project `.grok/skills`
 9. `~/.hermes/skills`
 10. project `.hermes/skills`
-11. `~/.config/opencode/skills`
-12. project `.opencode/skills`
-13. the `skills` array in `opencode.json(c)` (2.x) or `skills.paths` (1.x); relative paths resolve from the working directory; supports `~/`, absolute paths and HTTP catalogs
+11. `~/.kimi-code/skills`
+12. project `.kimi-code/skills`
+13. `~/.config/opencode/skills`
+14. project `.opencode/skills`
+15. the `skills` array in `opencode.json(c)` (2.x) or `skills.paths` (1.x); relative paths resolve from the working directory; supports `~/`, absolute paths and HTTP catalogs
 
 ## JSON output
 

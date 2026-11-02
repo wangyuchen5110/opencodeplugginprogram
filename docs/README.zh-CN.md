@@ -438,6 +438,16 @@ mcp_servers:
 
 Hermes 的工具命名是 `mcp_<server>_<tool>`，即 `mcp_skills_doctor_skills_doctor`。它的 skill 在 `~/.hermes/skills`（含导入的 `openclaw-imports/`）和项目 `.hermes/skills`，`check` 都会扫描。
 
+### Kimi Code（Moonshot）
+
+一条命令写入 MCP 配置和审计 skill：
+
+```powershell
+npx -y opencode-skills-doctor install --client kimi
+```
+
+它会把 `skills-doctor` 合并进 `~/.kimi-code/mcp.json`（或 `$KIMI_CODE_HOME/mcp.json`），并把 skill 复制到 `$KIMI_CODE_HOME/skills/`。之后开新的 Kimi Code 会话即可，工具名是 `mcp__skills_doctor__skills_doctor`。`check` 也会扫描 `~/.kimi-code/skills` 和项目 `.kimi-code/skills`；`uninstall --client kimi` 反向撤销。
+
 ## 检测规则
 
 | 规则 | 级别 | 含义 |

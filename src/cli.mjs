@@ -10,6 +10,7 @@ import { loadConfig } from "./config.mjs"
 import { startMcpServer } from "./mcp.mjs"
 import { installOpenCode, uninstallOpenCode } from "./install.mjs"
 import { installDsh, uninstallDsh } from "./dsh.mjs"
+import { installKimi, uninstallKimi } from "./kimi.mjs"
 import { writeHtmlReport, openReport } from "./html.mjs"
 import { planBudget } from "./plan.mjs"
 import {
@@ -75,6 +76,7 @@ function parseArgs(argv) {
     client: "auto",
     profile: null,
     dshHome: null,
+    kimiHome: null,
     configDir: null,
     noNpm: false,
     html: null,
@@ -161,6 +163,9 @@ function parseArgs(argv) {
         break
       case "--dsh-home":
         options.dshHome = path.resolve(args[++i] ?? ".")
+        break
+      case "--kimi-home":
+        options.kimiHome = path.resolve(args[++i] ?? ".")
         break
       case "--no-npm":
         options.noNpm = true
@@ -600,8 +605,8 @@ export async function main(argv) {
     process.exit(2)
   }
 
-  if (!["auto", "opencode", "desktop", "dsh"].includes(options.client)) {
-    console.error("unsupported --client: expected auto, opencode, desktop or dsh")
+  if (!["auto", "opencode", "desktop", "dsh", "kimi"].includes(options.client)) {
+    console.error("unsupported --client: expected auto, opencode, desktop, dsh or kimi")
     process.exitCode = 2
     return
   }
@@ -643,6 +648,25 @@ export async function main(argv) {
       for (const error of result.errors) console.log(red(t("install.error", { error })))
       console.log("")
       console.log(result.errors.length ? red(t("dsh.failed")) : dim(t("dsh.restart")))
+    }
+    process.exitCode = result.errors.length ? 1 : 0
+    return
+  }
+
+  if (options.command === "install" && options.client === "kimi") {
+    const result = installKimi({ home: options.kimiHome ?? undefined, dryRun: options.dryRun })
+    if (options.json) {
+      console.log(JSON.stringify(result, null, 2))
+    } else {
+      console.log(bold(t("kimi.title")))
+      if (result.home) console.log(dim(t("kimi.home", { dir: result.home })))
+      if (result.mcpFile) console.log(dim(t("kimi.mcp", { file: result.mcpFile })))
+      if (result.skillDir) console.log(dim(t("kimi.skill", { dir: result.skillDir })))
+      if (result.dryRun) console.log(dim(t("install.dryRun")))
+      for (const action of result.actions) console.log(`  · ${action}`)
+      for (const error of result.errors) console.log(red(t("install.error", { error })))
+      console.log("")
+      console.log(result.errors.length ? red(t("kimi.failed")) : dim(t("kimi.restart")))
     }
     process.exitCode = result.errors.length ? 1 : 0
     return
@@ -693,6 +717,23 @@ export async function main(argv) {
       for (const error of result.errors) console.log(red(t("install.error", { error })))
       console.log("")
       console.log(result.errors.length ? red(t("dsh.failed")) : dim(t("dsh.restart")))
+    }
+    process.exitCode = result.errors.length ? 1 : 0
+    return
+  }
+
+  if (options.command === "uninstall" && options.client === "kimi") {
+    const result = uninstallKimi({ home: options.kimiHome ?? undefined, dryRun: options.dryRun })
+    if (options.json) {
+      console.log(JSON.stringify(result, null, 2))
+    } else {
+      console.log(bold(t("kimi.uninstallTitle")))
+      if (result.home) console.log(dim(t("kimi.home", { dir: result.home })))
+      if (result.dryRun) console.log(dim(t("install.dryRun")))
+      for (const action of result.actions) console.log(`  · ${action}`)
+      for (const error of result.errors) console.log(red(t("install.error", { error })))
+      console.log("")
+      console.log(result.errors.length ? red(t("kimi.failed")) : dim(t("kimi.restart")))
     }
     process.exitCode = result.errors.length ? 1 : 0
     return
