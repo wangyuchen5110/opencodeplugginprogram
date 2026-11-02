@@ -28,6 +28,9 @@ import { PassThrough } from "node:stream"
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 
+/** 测试隔离在临时 home 下：忽略外部 DSH_HOME 等环境变量对发现结果的影响。 */
+const discoverSourcesIsolated = (options) => discoverSources({ env: {}, ...options })
+
 /** 在进程内跑 CLI，避免沙箱里 spawn 子进程被拒。 */
 async function runCli(argv) {
   const logs = []
@@ -121,7 +124,7 @@ test("discovery: 全局/项目/兼容目录/配置数组，且 config 优先级�
   skill(path.join(project, "extra"), "delta")
   write(path.join(project, "opencode.jsonc"), `{ "skills": ["./extra"] }`)
 
-  const found = scanAll(discoverSources({ cwd: project, home }))
+  const found = scanAll(discoverSourcesIsolated({ cwd: project, home }))
   const ids = found.skills.map((s) => s.id).sort()
   assert.deepEqual(ids, ["alpha", "beta", "delta", "gamma"])
 
@@ -141,7 +144,7 @@ test("discovery: 项目根到 cwd 逐级扫描，且不会把子目录里的普�
   skill(path.join(sub, ".opencode", "skills"), "sub-skill")
   write(path.join(root, ".opencode", "skills", "nested", "notes.md"), "---\ndescription: not a skill\n---\n")
 
-  const found = scanAll(discoverSources({ cwd: sub, home }))
+  const found = scanAll(discoverSourcesIsolated({ cwd: sub, home }))
   const ids = found.skills.map((s) => s.id).sort()
   assert.deepEqual(ids, ["root-skill", "sub-skill"])
 })
@@ -154,7 +157,7 @@ test("shadowed: 同 ID 多来源时项目定义生效", () => {
   skill(path.join(home, ".config", "opencode", "skills"), "dup", "description: global dup")
   skill(path.join(project, ".opencode", "skills"), "dup", "description: project dup")
 
-  const found = scanAll(discoverSources({ cwd: project, home }))
+  const found = scanAll(discoverSourcesIsolated({ cwd: project, home }))
   const findings = lint(found.skills)
   const shadow = findings.find((f) => f.rule === "shadowed" && f.skills.includes("dup"))
   assert.ok(shadow, "应报告 shadowed")
@@ -178,7 +181,7 @@ test("lint: 预算、长描述、缺失描述、重复正文", () => {
   skill(path.join(project, ".opencode", "skills"), "dup-a", "description: same body", "identical body")
   skill(path.join(project, ".opencode", "skills"), "dup-b", "description: same body too", "identical body")
 
-  const found = scanAll(discoverSources({ cwd: project, home }))
+  const found = scanAll(discoverSourcesIsolated({ cwd: project, home }))
   const findings = lint(found.skills, { budget: 50 })
   const rules = findings.map((f) => f.rule)
 
@@ -197,7 +200,7 @@ test("lint: 相近描述与隐藏 skill", () => {
   skill(path.join(project, ".opencode", "skills"), "deploy-b", "description: deploy the app to production safely")
   skill(path.join(project, ".opencode", "skills"), "hidden-one", "description: hidden skill\nmetadata:\n  opencode/autoinvoke: false")
 
-  const found = scanAll(discoverSources({ cwd: project, home }))
+  const found = scanAll(discoverSourcesIsolated({ cwd: project, home }))
   const findings = lint(found.skills)
   const rules = findings.map((f) => f.rule)
   assert.ok(rules.includes("near-duplicate-description"))
@@ -305,7 +308,7 @@ test("discovery: 跟随符号链接的 skill 目录（真实环境常见）", (t
     return
   }
 
-  const found = scanAll(discoverSources({ cwd: project, home }))
+  const found = scanAll(discoverSourcesIsolated({ cwd: project, home }))
   assert.ok(found.skills.some((s) => s.id === "linked"))
 })
 
@@ -317,7 +320,7 @@ test("discovery: 兼容 OpenCode 1.x 的 skills.paths 写法", () => {
   skill(external, "legacy-skill")
   write(path.join(project, "opencode.json"), JSON.stringify({ skills: { paths: [external] } }))
 
-  const found = scanAll(discoverSources({ cwd: project, home }))
+  const found = scanAll(discoverSourcesIsolated({ cwd: project, home }))
   const skillIds = found.skills.map((s) => s.id)
   assert.ok(skillIds.includes("legacy-skill"))
   assert.ok(found.sources.some((s) => s.kind === "config-path" && s.dir === external))
@@ -348,7 +351,7 @@ test("lint: 断链引用、非法 frontmatter、空正文", () => {
   )
   write(path.join(project, ".opencode", "skills", "empty", "SKILL.md"), "---\ndescription: empty body\n---\n")
 
-  const found = scanAll(discoverSources({ cwd: project, home }))
+  const found = scanAll(discoverSourcesIsolated({ cwd: project, home }))
   const findings = lint(found.skills)
   const rules = findings.map((finding) => finding.rule)
 
@@ -429,7 +432,7 @@ test("discovery: 扫描 Grok / Cursor / Hermes 的 skill 目录", () => {
   skill(path.join(home, ".kimi-code", "skills"), "kimi-user")
   skill(path.join(project, ".kimi-code", "skills"), "kimi-project")
 
-  const found = scanAll(discoverSources({ cwd: project, home }))
+  const found = scanAll(discoverSourcesIsolated({ cwd: project, home }))
   const ids = found.skills.map((item) => item.id).sort()
   assert.deepEqual(ids, [
     "cursor-project",
@@ -448,7 +451,7 @@ test("discovery: extraDirs 扫描额外目录", () => {
   const project = tmpdir()
   fs.mkdirSync(path.join(project, ".git"))
   skill(path.join(home, "extra-skills"), "extra-one")
-  const found = scanAll(discoverSources({ cwd: project, home, extraDirs: [path.join(home, "extra-skills")] }))
+  const found = scanAll(discoverSourcesIsolated({ cwd: project, home, extraDirs: [path.join(home, "extra-skills")] }))
   assert.ok(found.skills.some((item) => item.id === "extra-one"))
 })
 
@@ -654,7 +657,7 @@ test("fix: 归档被遮蔽的定义，保留生效版本", () => {
   skill(path.join(home, ".config", "opencode", "skills"), "dup", "description: global dup")
   skill(path.join(project, ".opencode", "skills"), "dup", "description: project dup")
 
-  const found = scanAll(discoverSources({ cwd: project, home }))
+  const found = scanAll(discoverSourcesIsolated({ cwd: project, home }))
   const { plan, skipped } = planFixes(found.skills, new Map(), { includeGlobal: true })
   assert.equal(plan.length, 1)
   assert.equal(skipped.length, 0)
@@ -664,7 +667,7 @@ test("fix: 归档被遮蔽的定义，保留生效版本", () => {
   assert.equal(moved.length, 1)
   assert.ok(fs.existsSync(moved[0].target))
 
-  const after = scanAll(discoverSources({ cwd: project, home }))
+  const after = scanAll(discoverSourcesIsolated({ cwd: project, home }))
   assert.equal(after.skills.length, 1)
   assert.equal(after.skills[0].description, "project dup")
   assert.ok(!lint(after.skills).some((f) => f.rule === "shadowed"))
@@ -677,7 +680,7 @@ test("fix: dry-run 不移动文件；由更新器管理的定义会跳过", () =
   skill(path.join(home, ".config", "opencode", "skills"), "dup", "description: global dup")
   skill(path.join(project, ".opencode", "skills"), "dup", "description: project dup")
 
-  const found = scanAll(discoverSources({ cwd: project, home }))
+  const found = scanAll(discoverSourcesIsolated({ cwd: project, home }))
   const loser = found.skills.find((s) => s.description === "global dup")
 
   const dry = applyFixes(planFixes(found.skills, new Map(), { includeGlobal: true }).plan, { dryRun: true })
@@ -698,7 +701,7 @@ test("fix: 默认只处理项目来源，全局来源需要 --all", () => {
   skill(path.join(home, ".config", "opencode", "skills"), "dup", "description: global dup")
   skill(path.join(project, ".opencode", "skills"), "dup", "description: project dup")
 
-  const found = scanAll(discoverSources({ cwd: project, home }))
+  const found = scanAll(discoverSourcesIsolated({ cwd: project, home }))
   const defaultPlan = planFixes(found.skills)
   assert.equal(defaultPlan.plan.length, 0)
   assert.equal(defaultPlan.skippedGlobal.length, 1)
@@ -791,7 +794,7 @@ test("fix --hide: 写入 autoinvoke:false，dry-run 不改文件", () => {
   skill(path.join(project, ".opencode", "skills"), "visible", "description: visible skill")
   const file = path.join(project, ".opencode", "skills", "visible", "SKILL.md")
 
-  const found = scanAll(discoverSources({ cwd: project, home }))
+  const found = scanAll(discoverSourcesIsolated({ cwd: project, home }))
   const dry = hideSkills(found.skills, ["visible"], { dryRun: true })
   assert.equal(dry.changed.length, 1)
   assert.ok(!parseFrontmatter(fs.readFileSync(file, "utf8")).data.metadata)
@@ -801,7 +804,7 @@ test("fix --hide: 写入 autoinvoke:false，dry-run 不改文件", () => {
   assert.equal(fm.data.metadata["opencode/autoinvoke"], false)
   assert.match(fm.body, /body/)
 
-  const after = scanAll(discoverSources({ cwd: project, home }))
+  const after = scanAll(discoverSourcesIsolated({ cwd: project, home }))
   assert.equal(after.skills[0].hidden, true)
 })
 
@@ -812,7 +815,7 @@ test("fix --hide: 没有 frontmatter 的文件也能加", () => {
   const file = path.join(project, ".opencode", "skills", "plain.md")
   write(file, "just body text")
 
-  const found = scanAll(discoverSources({ cwd: project, home }))
+  const found = scanAll(discoverSourcesIsolated({ cwd: project, home }))
   hideSkills(found.skills, ["plain"])
   const fm = parseFrontmatter(fs.readFileSync(file, "utf8"))
   assert.equal(fm.data.metadata["opencode/autoinvoke"], false)
@@ -1224,4 +1227,40 @@ test("MCP: stdio 换行分帧，连续两条消息都回包", async () => {
   assert.equal(messages.length, 2)
   assert.equal(messages[0].id, "a")
   assert.equal(messages[1].result.tools[0].name, "skills_doctor")
+})
+
+test("discovery: DSH_HOME 与项目 .dsh/skills 都会被扫描", () => {
+  const home = tmpdir()
+  const dshHome = path.join(home, "custom-dsh")
+  const project = path.join(home, "proj")
+  fs.mkdirSync(path.join(project, ".git"), { recursive: true })
+  skill(path.join(dshHome, "skills"), "dsh-global-skill")
+  skill(path.join(project, ".dsh", "skills"), "dsh-project-skill")
+
+  const found = discoverSourcesIsolated({ cwd: project, home, env: { DSH_HOME: dshHome } })
+  const scanned = scanAll(found)
+  assert.deepEqual(
+    scanned.skills.map((s) => s.id).sort(),
+    ["dsh-global-skill", "dsh-project-skill"],
+  )
+  assert.ok(found.sources.some((s) => s.kind === "dsh-global" && s.dir === path.join(dshHome, "skills")))
+  assert.ok(found.sources.some((s) => s.kind === "dsh-project" && s.dir === path.join(project, ".dsh", "skills")))
+
+  skill(path.join(home, ".dsh", "skills"), "dsh-default-skill")
+  const fallback = scanAll(discoverSourcesIsolated({ cwd: project, home, env: {} }))
+  assert.ok(fallback.skills.some((s) => s.id === "dsh-default-skill"))
+})
+
+test("lint: 描述近似检测在大小排序后仍命中，且小集合提前结束", () => {
+  const project = tmpdir()
+  const base = "Generate release notes from merged pull requests and link them in the changelog"
+  skill(path.join(project, ".opencode", "skills"), "long-a", `description: ${base}`)
+  skill(path.join(project, ".opencode", "skills"), "tiny", "description: short description")
+  skill(path.join(project, ".opencode", "skills"), "long-b", `description: ${base} for a hotfix`)
+
+  const found = scanAll(discoverSourcesIsolated({ cwd: project, home: tmpdir() }))
+  const findings = lint(found.skills, { budget: 1200 })
+  const near = findings.find((f) => f.rule === "near-duplicate-description")
+  assert.ok(near, "expected a near-duplicate finding")
+  assert.ok(/long-a|long-b/.test(near.message))
 })

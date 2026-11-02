@@ -203,18 +203,19 @@ export function lint(skills, options = {}) {
     })
   }
 
-  // 5) 描述近似（token 集合只算一次；先按集合大小做 0.75 上界预筛）
-  const withDesc = described.map((skill) => ({ skill, tokens: tokenSet(skill.description) }))
+  // 5) 描述近似（token 集合只算一次；按大小升序后用 Jaccard 上界提前结束）
+  const withDesc = described
+    .map((skill) => ({ skill, tokens: tokenSet(skill.description) }))
+    .filter((entry) => entry.tokens.size > 0)
+    .sort((x, y) => x.tokens.size - y.tokens.size)
   const pairs = []
   for (let i = 0; i < withDesc.length; i++) {
+    const a = withDesc[i]
     for (let j = i + 1; j < withDesc.length; j++) {
-      const a = withDesc[i]
       const b = withDesc[j]
       if (a.skill.id === b.skill.id) continue
-      const min = Math.min(a.tokens.size, b.tokens.size)
-      const max = Math.max(a.tokens.size, b.tokens.size)
-      // Jaccard ≤ min/max，所以比值低于阈值时不可能达到阈值
-      if (!min || min / max < NEAR_DUPLICATE_THRESHOLD) continue
+      // 大小升序：a 为空集已过滤，|a|/|b| 随 j 单调下降，低于阈值后再无可能命中。
+      if (a.tokens.size / b.tokens.size < NEAR_DUPLICATE_THRESHOLD) break
       const score = jaccard(a.tokens, b.tokens)
       if (score >= NEAR_DUPLICATE_THRESHOLD) pairs.push({ a: a.skill.id, b: b.skill.id, score })
     }

@@ -35,7 +35,7 @@ export default Plugin.define({
       editor.namespace({ name: "skills", description: "OpenCode skill diagnostics" })
       editor.add({
         name: "doctor",
-        description: "Audit local OpenCode skills: duplicates, shadowing, context budget and fix hints",
+        description: "Audit installed agent skills (OpenCode, Claude Code, Grok, Cursor, Hermes, Kimi, DSH): shadowing, per-step token budget and fix hints",
         input: {
           type: "object",
           properties: {

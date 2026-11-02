@@ -10,7 +10,7 @@ export function toolDefinition() {
   return {
     name: TOOL_NAME,
     description:
-      "Audit local agent skills (OpenCode / Claude Code / .agents): duplicate and shadowed definitions, per-step description token budget, oversized bodies and fix hints. Returns a markdown report.",
+      "Audit installed agent skills (OpenCode, Claude Code, Grok, Cursor, Hermes, Kimi, DSH): shadowed duplicates, per-step description token budget, oversized bodies and fix hints. Returns a markdown report.",
     inputSchema: {
       type: "object",
       properties: {

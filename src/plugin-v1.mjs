@@ -33,7 +33,7 @@ export const SkillsDoctorPlugin = async ({ directory }) => ({
   tool: {
     skills_doctor: tool({
       description:
-        "Audit local OpenCode skills: duplicates, shadowing, context budget and fix hints. Returns a markdown report.",
+        "Audit installed agent skills (OpenCode, Claude Code, Grok, Cursor, Hermes, Kimi, DSH): shadowing, per-step token budget and fix hints. Returns a markdown report.",
       args: z.object({
         directory: z.string().optional().describe("Directory to audit (defaults to the current project)"),
         budget: z.number().optional().describe("Description token budget (default 1200)"),

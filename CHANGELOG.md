@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.0
+
+- Discovery: DeepSeek Harness skill roots are now scanned - `$DSH_HOME/skills` (default `~/.dsh/skills`) and project `.dsh/skills`. `install --client dsh` used to install a skill the auditor could never see.
+- `auditSkills({ home, env })` passes through to discovery, so wrappers and tests can audit an isolated agent home instead of the real one.
+- Performance: near-duplicate description detection now sorts by token-set size and exits at the Jaccard upper bound instead of testing every pair. On the uniform-size benchmark (`npm run bench`, 1,000 skills) that is ~248 ms -> ~220 ms; descriptions of varying length skip far more pairs.
+- Tool descriptions (`mcp`, both plugin entries) now list every supported agent - OpenCode, Claude Code, Grok, Cursor, Hermes, Kimi, DSH - and stay short enough to keep the tool schema cheap.
+- Docs: discovery list, DSH root, and a pointer to the OpenClaw wrapper.
+- Tests: 63.
+
 ## 0.8.1
 
 - `--extra-dir <dir>` (repeatable) scans additional skill roots; `auditSkills({ extraDirs })` exposes the same option for wrappers.

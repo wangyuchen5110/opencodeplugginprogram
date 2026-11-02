@@ -478,9 +478,11 @@ It merges `skills-doctor` into `~/.kimi-code/mcp.json` (or `$KIMI_CODE_HOME/mcp.
 10. project `.hermes/skills`
 11. `~/.kimi-code/skills`
 12. project `.kimi-code/skills`
-13. `~/.config/opencode/skills`
-14. project `.opencode/skills`
-15. the `skills` array in `opencode.json(c)` (2.x) or `skills.paths` (1.x); relative paths resolve from the working directory; supports `~/`, absolute paths and HTTP catalogs
+13. `$DSH_HOME/skills` (default `~/.dsh/skills`) — DeepSeek Harness, where `install --client dsh` puts its skill
+14. project `.dsh/skills`
+15. `~/.config/opencode/skills`
+16. project `.opencode/skills`
+17. the `skills` array in `opencode.json(c)` (2.x) or `skills.paths` (1.x); relative paths resolve from the working directory; supports `~/`, absolute paths and HTTP catalogs
 
 ## JSON output
 

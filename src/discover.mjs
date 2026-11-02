@@ -124,17 +124,26 @@ function isUnder(parent, child) {
  * 10. 项目 .hermes/skills
  * 11. ~/.kimi-code/skills（Kimi Code）
  * 12. 项目 .kimi-code/skills
- * 13. ~/.config/opencode/skills
- * 14. 项目 .opencode/skills（项目根 → cwd）
- * 15. opencode.json(c) 里的 skills 数组 / skills.paths
+ * 13. $DSH_HOME/skills（默认 ~/.dsh/skills，DeepSeek Harness）
+ * 14. 项目 .dsh/skills
+ * 15. ~/.config/opencode/skills
+ * 16. 项目 .opencode/skills（项目根 → cwd）
+ * 17. opencode.json(c) 里的 skills 数组 / skills.paths
  */
-export function discoverSources({ cwd = process.cwd(), home = os.homedir(), includeGlobal = true, extraDirs = [] } = {}) {
+export function discoverSources({
+  cwd = process.cwd(),
+  home = os.homedir(),
+  includeGlobal = true,
+  extraDirs = [],
+  env = process.env,
+} = {}) {
   const projectRoot = findProjectRoot(cwd) ?? path.resolve(cwd)
   const projectChain = pathChain(projectRoot, cwd)
   const sources = []
   const catalogs = []
   const missing = []
   const seen = new Set()
+  const dshHome = env.DSH_HOME ? path.resolve(expandHome(env.DSH_HOME, home)) : path.join(home, ".dsh")
 
   const addSource = (kind, scope, dir) => {
     const abs = path.resolve(dir)
@@ -160,6 +169,9 @@ export function discoverSources({ cwd = process.cwd(), home = os.homedir(), incl
 
   if (includeGlobal) addSource("kimi-global", "global", path.join(home, ".kimi-code", "skills"))
   for (const dir of projectChain) addSource("kimi-project", "project", path.join(dir, ".kimi-code", "skills"))
+
+  if (includeGlobal) addSource("dsh-global", "global", path.join(dshHome, "skills"))
+  for (const dir of projectChain) addSource("dsh-project", "project", path.join(dir, ".dsh", "skills"))
 
   if (includeGlobal) addSource("opencode-global", "global", path.join(home, ".config", "opencode", "skills"))
   for (const dir of projectChain) addSource("opencode-project", "project", path.join(dir, ".opencode", "skills"))

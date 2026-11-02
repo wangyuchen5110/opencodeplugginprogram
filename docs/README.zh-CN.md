@@ -27,7 +27,7 @@ OpenCode skill 的**本地检测器 + 更新器 + 修复器**，并附带 **Open
 |---|---|
 | **是什么** | 审计、修复、更新 coding agent 加载的 skill |
 | **形态** | CLI · OpenCode 插件（1.x / 2.x）· MCP server（Claude Code、Codex、DSH…）· 兼容 Grok CLI |
-| **来源** | `.opencode/skills`、`.claude/skills`、`.agents/skills`、`.grok/skills`、`.cursor/skills`、`opencode.json(c)` 配置、HTTP catalog |
+| **来源** | `.opencode/skills`、`.claude/skills`、`.agents/skills`、`.grok/skills`、`.cursor/skills`、`.hermes/skills`、`.kimi-code/skills`、`.dsh/skills`（含 `$DSH_HOME`）、`opencode.json(c)` 配置、HTTP catalog |
 | **能查** | 同 ID 遮蔽、重复、超长描述、超大正文、每步 token 预算、断链引用、非法 frontmatter、空正文、陈旧 skill |
 | **能修** | 归档遮蔽定义（可逆）、隐藏低频 skill、catalog 同步并检测 drift |
 | **报告** | 终端、JSON，或自包含 HTML（`--html [file] --open`） |

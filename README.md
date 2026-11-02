@@ -89,7 +89,7 @@ npx -y opencode-skills-doctor mcp
 { "mcpServers": { "skills-doctor": { "command": "npx", "args": ["-y", "opencode-skills-doctor", "mcp"] } } }
 ```
 
-Nothing to configure for **skills discovery**: it reads `.opencode/skills`, `.claude/skills`, `.agents/skills`, `.grok/skills`, `.cursor/skills` and their user-level equivalents. See the [full reference](docs/REFERENCE.md) for OpenCode 1.x, DSH YAML, Codex TOML and Claude Code details.
+Nothing to configure for **skills discovery**: it reads `.opencode/skills`, `.claude/skills`, `.agents/skills`, `.grok/skills`, `.cursor/skills`, `.hermes/skills`, `.kimi-code/skills`, `.dsh/skills` (plus `$DSH_HOME`) and their user-level equivalents. See the [full reference](docs/REFERENCE.md) for OpenCode 1.x, DSH YAML, Codex TOML and Claude Code details.
 
 ## Commands
 
@@ -113,11 +113,12 @@ All commands accept `--json`, `--lang en|zh`, `--budget`, `--root` and `--no-glo
 | **OpenCode 2.x** | `plugins: ["opencode-skills-doctor"]` → tool + commands + budget warning |
 | **OpenCode 1.x** | `install` writes the local plugin entry and markdown commands |
 | **OpenCode Desktop** | shares the CLI config; `--client desktop` detects the app and its bundled core |
-| **DeepSeek Harness** | `install --client dsh` adds the MCP entry and the `skills-doctor-audit` skill |
+| **DeepSeek Harness** | `install --client dsh` adds the MCP entry and the `skills-doctor-audit` skill; `$DSH_HOME/skills` is scanned |
 | **Claude Code / Codex** | MCP server (`npx -y opencode-skills-doctor mcp`) |
 | **Grok CLI / Cursor** | their skill roots are scanned natively |
 | **Hermes Agent** | MCP entry in `~/.hermes/config.yaml`; `~/.hermes/skills` is scanned |
 | **Kimi Code** | `install --client kimi` writes `~/.kimi-code/mcp.json` + the audit skill |
+| **OpenClaw** | separate wrapper with its own native plugin: [openclaw-skills-doctor](https://github.com/wangyuchen5110/openclaw-skills-doctor) |
 
 ## Why it is safe
 
