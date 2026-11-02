@@ -354,9 +354,19 @@ DSH ships an MCP client bundle (`@deepseek-ai/dsh-mcp-client`). Add one entry to
     args: ["-y", "opencode-skills-doctor", "mcp"]
 ```
 
-Restart DSH. The tool shows up as `mcp__skills_doctor__skills_doctor`.
+Restart DSH. The tool shows up as `mcp__skills_doctor__skills_doctor` and accepts `directory`, `budget`, `lang`, `global` and `html`.
 
 On Windows, if the stdio spawn cannot resolve `npx`, use `command: cmd` and `args: ["/c", "npx", "-y", "opencode-skills-doctor", "mcp"]`.
+
+#### Optional skill (tells the model when to audit)
+
+The repo ships a DSH skill at `skills/dsh-skills-doctor/`:
+
+```powershell
+Copy-Item -Recurse skills\dsh-skills-doctor "$env:USERPROFILE\.dsh\skills\"
+```
+
+DSH watches skill roots, so `skills-doctor-audit` appears in the catalog without a restart. The skill runs `check`/`plan`, explains the token impact, and only proposes fixes — it never edits skills without confirmation.
 
 ## How it works
 

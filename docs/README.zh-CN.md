@@ -354,9 +354,19 @@ DSH 自带 MCP 客户端 bundle（`@deepseek-ai/dsh-mcp-client`）。在 profile
     args: ["-y", "opencode-skills-doctor", "mcp"]
 ```
 
-重启 DSH。工具会以 `mcp__skills_doctor__skills_doctor` 出现。
+重启 DSH。工具会以 `mcp__skills_doctor__skills_doctor` 出现，参数支持 `directory`、`budget`、`lang`、`global`、`html`。
 
 Windows 上如果 stdio 起不来 `npx`，改成 `command: cmd`、`args: ["/c", "npx", "-y", "opencode-skills-doctor", "mcp"]`。
+
+#### 可选技能包（告诉模型什么时候该体检）
+
+仓库自带一个 DSH skill：`skills/dsh-skills-doctor/`：
+
+```powershell
+Copy-Item -Recurse skills\dsh-skills-doctor "$env:USERPROFILE\.dsh\skills\"
+```
+
+DSH 会监听 skill 目录，`skills-doctor-audit` 无需重启就会出现在目录里。它会跑 `check`/`plan`、解释 token 影响，并且只提出修复建议 —— 不经确认不会改 skill 文件。
 
 ## 工作原理
 

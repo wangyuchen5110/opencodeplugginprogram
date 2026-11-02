@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.2
+
+- DSH: ship an optional `skills-doctor-audit` skill under `skills/dsh-skills-doctor/` that teaches the model when to audit and how to interpret `check`/`plan`.
+- Docs: DSH section now documents the tool arguments and the skill install step.
+
 ## 0.5.1
 
 - OpenCode Desktop support: `install --client auto|opencode|desktop` detects the desktop app in standard locations, reads its bundled core version from `resources/app.asar`, and wires the shared config directory.
