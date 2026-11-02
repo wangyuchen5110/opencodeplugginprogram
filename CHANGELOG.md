@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.1
+
+- DSH: fix the patch format — new entries must be wrapped in `- insert:`; the previous bare row was treated as an unknown-id patch and skipped by app-boot. `install --client dsh` now writes the correct block and migrates legacy bare rows in place.
+- Docs: corrected the manual DSH patch example in both READMEs.
+- Tests: 58.
+
 ## 0.6.0
 
 - DSH: `install --client dsh` is now a one-command setup — detects the DSH profile, appends the `mcp-skills-doctor` entry to `cordis.patch.yml` idempotently, and installs the `skills-doctor-audit` skill into `~/.dsh/skills/`.

@@ -1044,6 +1044,7 @@ test("dsh: 一条命令写入 MCP 配置和 skill，幂等且可卸载", () => {
   const first = installDsh({ home, profile: "desktop" })
   assert.equal(first.errors.length, 0)
   const text = fs.readFileSync(patch, "utf8")
+  assert.match(text, /- insert:/)
   assert.match(text, /mcp-skills-doctor/)
   assert.match(text, /serverName: skills_doctor/)
   assert.match(text, /id: keep/)
@@ -1063,6 +1064,36 @@ test("dsh: 一条命令写入 MCP 配置和 skill，幂等且可卸载", () => {
   assert.ok(!after.includes("mcp-skills-doctor"))
   assert.match(after, /id: keep/)
   assert.ok(!fs.existsSync(path.join(home, "skills", "skills-doctor-audit")))
+})
+
+test("dsh: 旧版裸条目会迁移成 insert 块", () => {
+  const home = tmpdir()
+  write(path.join(home, "profiles", "desktop", "package.json"), '{"name":"p"}')
+  const patch = path.join(home, "profiles", "desktop", "cordis.patch.yml")
+  write(
+    patch,
+    [
+      "- id: keep",
+      "  config:",
+      "    a: 1",
+      "- id: mcp-skills-doctor",
+      '  name: "@deepseek-ai/dsh-mcp-client"',
+      "  config:",
+      "    serverName: skills_doctor",
+      "    transport: stdio",
+      "    command: npx",
+      '    args: ["-y", "opencode-skills-doctor", "mcp"]',
+      "",
+    ].join("\n"),
+  )
+
+  const result = installDsh({ home, profile: "desktop" })
+  assert.equal(result.errors.length, 0)
+  assert.ok(result.actions.some((action) => action.includes("migrating")))
+  const text = fs.readFileSync(patch, "utf8")
+  assert.match(text, /- insert:/)
+  assert.equal((text.match(/mcp-skills-doctor/g) ?? []).length, 1)
+  assert.match(text, /id: keep/)
 })
 
 test("CLI: install --client dsh 走 DSH 分支", async () => {

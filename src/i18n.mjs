@@ -127,7 +127,7 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
     "dsh.profile": "  profile: {profile}",
     "dsh.patch": "  patch: {file}",
     "dsh.skill": "  skill: {dir}",
-    "dsh.restart": "Restart DSH to load the MCP tool (the skill updates live).",
+    "dsh.restart": "Restart DSH to load the MCP tool (HMR reloads the patch when enabled; the skill updates live).",
     "dsh.failed": "DSH integration failed.",
     "update.toolAvailable":
       "  ! skills-doctor {latest} is available (you have {current}); update with: {cmd}  ·  {url}",
@@ -348,7 +348,7 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
     "dsh.profile": "  profile: {profile}",
     "dsh.patch": "  patch: {file}",
     "dsh.skill": "  skill: {dir}",
-    "dsh.restart": "重启 DSH 加载 MCP 工具（skill 会即时更新）。",
+    "dsh.restart": "重启 DSH 加载 MCP 工具（启用 HMR 时会自动重载 patch；skill 即时更新）。",
     "dsh.failed": "DSH 集成失败。",
     "update.toolAvailable": "  ! skills-doctor 有新版本 {latest}（当前 {current}）；更新：{cmd}  ·  {url}",
     "upgrade.title": "skills-doctor 自更新",
