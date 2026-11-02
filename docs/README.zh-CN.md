@@ -2,24 +2,42 @@
   <img src="https://raw.githubusercontent.com/wangyuchen5110/opencodeplugginprogram/main/docs/assets/banner.svg" alt="skills-doctor" width="100%">
 </p>
 
+<h1 align="center">skills-doctor</h1>
+
 <p align="center">
   <b>审计、修复、更新你的 coding agent 加载的 skill。</b><br>
   量出每步 token 税，找出遮蔽重复和断链，再安全地修掉。
 </p>
 
-# skills-doctor
+<p align="center">
+  <a href="https://www.npmjs.com/package/opencode-skills-doctor"><img src="https://img.shields.io/npm/v/opencode-skills-doctor?style=for-the-badge&color=3fb950" alt="npm"></a>
+  <a href="https://www.npmjs.com/package/opencode-skills-doctor"><img src="https://img.shields.io/npm/dw/opencode-skills-doctor?style=for-the-badge&color=2ea043" alt="downloads"></a>
+  <a href="https://github.com/wangyuchen5110/opencodeplugginprogram/stargazers"><img src="https://img.shields.io/github/stars/wangyuchen5110/opencodeplugginprogram?style=for-the-badge&color=58a6ff" alt="stars"></a>
+  <a href="https://github.com/wangyuchen5110/opencodeplugginprogram/actions/workflows/test.yml"><img src="https://github.com/wangyuchen5110/opencodeplugginprogram/actions/workflows/test.yml/badge.svg" alt="tests"></a>
+</p>
 
-[English](../README.md) · [完整英文参考](REFERENCE.md)
+<p align="center">
+  <img src="https://img.shields.io/badge/runs%20locally-100%25-3fb950?style=for-the-badge" alt="本地运行">
+  <img src="https://img.shields.io/badge/telemetry-none-3fb950?style=for-the-badge" alt="无遥测">
+  <img src="https://img.shields.io/badge/user%20data-never%20read-3fb950?style=for-the-badge" alt="不读取用户数据">
+  <img src="https://img.shields.io/badge/node-%E2%89%A520-3fb950?style=for-the-badge" alt="Node ≥ 20">
+  <a href="../LICENSE"><img src="https://img.shields.io/npm/l/opencode-skills-doctor?style=for-the-badge" alt="MIT"></a>
+</p>
 
-[![npm](https://img.shields.io/npm/v/opencode-skills-doctor)](https://www.npmjs.com/package/opencode-skills-doctor)
-[![downloads](https://img.shields.io/npm/dw/opencode-skills-doctor)](https://www.npmjs.com/package/opencode-skills-doctor)
-[![node](https://img.shields.io/node/v/opencode-skills-doctor)](https://www.npmjs.com/package/opencode-skills-doctor)
-[![license](https://img.shields.io/npm/l/opencode-skills-doctor)](../LICENSE)
-[![test](https://github.com/wangyuchen5110/opencodeplugginprogram/actions/workflows/test.yml/badge.svg)](https://github.com/wangyuchen5110/opencodeplugginprogram/actions/workflows/test.yml)
+<p align="center">
+  <a href="../README.md">English</a> · 简体中文 · <a href="../CHANGELOG.md">变更记录</a> · <a href="../SECURITY.zh-CN.md">安全策略</a> · <a href="REFERENCE.md">完整参考</a>
+</p>
+
+> **纯本地运行。** 无遥测、不需要账号、不上传 —— 你的 skill、提示词和文件不会离开你的机器。见[隐私](#隐私纯本地运行不收集数据)。
 
 OpenCode skill 的**本地检测器 + 更新器 + 修复器**，并附带 **OpenCode 插件入口** —— 零依赖，Node ≥ 20。
 
-[English](../README.md) | **简体中文** · [变更记录](../CHANGELOG.md) · [安全策略](../SECURITY.zh-CN.md)
+## 目录
+
+- [一张表看懂](#一张表看懂) · [隐私](#隐私纯本地运行不收集数据)
+- [为什么需要它](#为什么需要它) · [快速开始](#快速开始) · [命令](#命令)
+- [工作原理](#工作原理) · [检测规则](#检测规则) · [安全](#安全)
+- [常见问题](#常见问题faq) · [开发与贡献](#开发与贡献)
 
 ## 一张表看懂
 

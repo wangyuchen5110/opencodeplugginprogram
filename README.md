@@ -2,18 +2,26 @@
   <img src="https://raw.githubusercontent.com/wangyuchen5110/opencodeplugginprogram/main/docs/assets/banner.svg" alt="skills-doctor — audit the hidden token cost of agent skills" width="100%">
 </p>
 
-<p align="center">
-  <a href="https://www.npmjs.com/package/opencode-skills-doctor"><img src="https://img.shields.io/npm/v/opencode-skills-doctor?style=flat-square&color=3fb950" alt="npm version"></a>
-  <a href="https://www.npmjs.com/package/opencode-skills-doctor"><img src="https://img.shields.io/npm/dw/opencode-skills-doctor?style=flat-square" alt="npm downloads"></a>
-  <a href="https://github.com/wangyuchen5110/opencodeplugginprogram/stargazers"><img src="https://img.shields.io/github/stars/wangyuchen5110/opencodeplugginprogram?style=flat-square&color=58a6ff" alt="GitHub stars"></a>
-  <img src="https://img.shields.io/badge/node-%E2%89%A520-3fb950?style=flat-square" alt="Node ≥ 20">
-  <a href="LICENSE"><img src="https://img.shields.io/npm/l/opencode-skills-doctor?style=flat-square" alt="MIT license"></a>
-  <a href="https://github.com/wangyuchen5110/opencodeplugginprogram/actions/workflows/test.yml"><img src="https://github.com/wangyuchen5110/opencodeplugginprogram/actions/workflows/test.yml/badge.svg?style=flat-square" alt="tests"></a>
-</p>
+<h1 align="center">skills-doctor</h1>
 
 <p align="center">
   <b>Audit, fix and update the skills your coding agent loads.</b><br>
   Measure the per-step token tax, find shadowed duplicates and broken references — then fix them safely.
+</p>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/opencode-skills-doctor"><img src="https://img.shields.io/npm/v/opencode-skills-doctor?style=for-the-badge&color=3fb950" alt="npm version"></a>
+  <a href="https://www.npmjs.com/package/opencode-skills-doctor"><img src="https://img.shields.io/npm/dw/opencode-skills-doctor?style=for-the-badge&color=2ea043" alt="npm downloads"></a>
+  <a href="https://github.com/wangyuchen5110/opencodeplugginprogram/stargazers"><img src="https://img.shields.io/github/stars/wangyuchen5110/opencodeplugginprogram?style=for-the-badge&color=58a6ff" alt="GitHub stars"></a>
+  <a href="https://github.com/wangyuchen5110/opencodeplugginprogram/actions/workflows/test.yml"><img src="https://github.com/wangyuchen5110/opencodeplugginprogram/actions/workflows/test.yml/badge.svg" alt="tests"></a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/runs%20locally-100%25-3fb950?style=for-the-badge" alt="runs locally">
+  <img src="https://img.shields.io/badge/telemetry-none-3fb950?style=for-the-badge" alt="no telemetry">
+  <img src="https://img.shields.io/badge/user%20data-never%20read-3fb950?style=for-the-badge" alt="user data is never read">
+  <img src="https://img.shields.io/badge/node-%E2%89%A520-3fb950?style=for-the-badge" alt="Node ≥ 20">
+  <a href="LICENSE"><img src="https://img.shields.io/npm/l/opencode-skills-doctor?style=for-the-badge" alt="MIT license"></a>
 </p>
 
 <p align="center">
@@ -23,7 +31,12 @@
 > **Runs 100% locally.** No telemetry, no account, no uploads — your skills,
 > prompts and files never leave your machine. See [Privacy](#privacy-local-only-no-data-collection).
 
----
+## Contents
+
+- [The 30-second version](#the-30-second-version) · [Privacy](#privacy-local-only-no-data-collection)
+- [See it](#see-it) · [How it works](#how-it-works) · [Quick start](#quick-start)
+- [Install](#install) · [Commands](#commands) · [Works where you work](#works-where-you-work)
+- [Why it is safe](#why-it-is-safe) · [Development](#development)
 
 ## The 30-second version
 
@@ -60,6 +73,23 @@ Every agent skill with a `description` is advertised to the model on **every sin
 </p>
 
 A real `check --html` run: summary cards, the context-budget bar, filterable findings, and the exact potential savings.
+
+## How it works
+
+```mermaid
+flowchart LR
+  A["skill roots<br/>OpenCode · Claude · Grok · Cursor · Hermes · Kimi · DSH"] --> B["discover<br/>precedence resolved"]
+  B --> C["scan SKILL.md<br/>frontmatter + body + hash"]
+  C --> D["lint<br/>16 rules + token budget"]
+  D --> E{"findings?"}
+  E -->|"yes"| F["plan / fix<br/>trim · hide · archive"]
+  E -->|"always"| G["report<br/>terminal · JSON · HTML"]
+  F --> G
+  G --> H["you · CI · the agent"]
+```
+
+Everything runs in one pass and is deterministic: the same skill files produce the
+same numbers, so a report is safe to diff in CI.
 
 ## Quick start
 
