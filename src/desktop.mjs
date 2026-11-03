@@ -21,8 +21,10 @@ export function desktopCandidates(platform = process.platform, env = process.env
   return ["/usr/bin/opencode-desktop", "/usr/local/bin/opencode-desktop", "/opt/OpenCode/opencode-desktop", "/opt/opencode-desktop/opencode-desktop"]
 }
 
-function asarPathFor(exe) {
-  if (process.platform === "darwin" || exe.includes(".app")) {
+function asarPathFor(exe, platform = process.platform) {
+  // Callers may probe another platform (tests, cross-platform tooling), so use
+  // the requested platform instead of the host one.
+  if (platform === "darwin" || exe.includes(".app")) {
     return path.join(path.dirname(path.dirname(path.dirname(path.dirname(exe)))), "Resources", "app.asar")
   }
   return path.join(path.dirname(exe), "resources", "app.asar")
@@ -71,8 +73,9 @@ export function readAsarVersion(asarFile) {
 export function detectDesktop({ platform = process.platform, env = process.env, home = os.homedir() } = {}) {
   for (const exe of desktopCandidates(platform, env, home)) {
     if (!fs.existsSync(exe)) continue
-    const version = readAsarVersion(asarPathFor(exe))
-    return { installed: true, exe, version, asar: asarPathFor(exe) }
+    const asar = asarPathFor(exe, platform)
+    const version = readAsarVersion(asar)
+    return { installed: true, exe, version, asar }
   }
   return { installed: false, exe: null, version: null, asar: null }
 }

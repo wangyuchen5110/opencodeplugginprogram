@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.9.3
+
+- Bug fix: `detectDesktop({ platform })` used the **host** platform when locating
+  `app.asar`, so probing the Windows layout on macOS looked in `Resources/`
+  instead of `resources/`. `asarPathFor()` now takes the requested platform.
+- CI: the macOS jobs had been red for a long time because of that test
+  (Ubuntu and Windows passed). The suite is green on all three platforms now.
+- CI: macOS failures are printed as check annotations, so the failing test is
+  visible without downloading the job log.
+- `scripts/action-summary.mjs` and `action.yml` from 0.9.2 are unchanged.
+- Tests: 70.
+
 ## 0.9.2
 
 - GitHub Action (`action.yml`): composite action with `budget`, `fail-on`
