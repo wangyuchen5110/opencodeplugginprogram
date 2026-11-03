@@ -97,8 +97,9 @@ test("frontmatter: 没有 frontmatter 时原样返回", () => {
 })
 
 test("token/宽度估算对 CJK 合理", () => {
-  assert.ok(estimateTokens("你好世界") >= 2)
-  assert.ok(estimateTokens("hello world") >= 2)
+  assert.equal(estimateTokens("你好世界"), 7)
+  assert.equal(estimateTokens("hello"), 2)
+  assert.equal(estimateTokens("你好 hello"), Math.ceil(2 * 1.7 + 6 / 4))
   assert.equal(displayWidth("abc"), 3)
   assert.equal(displayWidth("中文"), 4)
 })
@@ -807,6 +808,22 @@ test("fix --hide: 写入 autoinvoke:false，dry-run 不改文件", () => {
 
   const after = scanAll(discoverSourcesIsolated({ cwd: project, home }))
   assert.equal(after.skills[0].hidden, true)
+})
+
+test("fix --hide: keeps CRLF line endings", () => {
+  const home = tmpdir()
+  const project = tmpdir()
+  fs.mkdirSync(path.join(project, ".git"))
+  const file = path.join(project, ".opencode", "skills", "crlf.md")
+  write(file, "---\r\nname: crlf\r\ndescription: crlf skill\r\n---\r\nbody line\r\n")
+
+  const found = scanAll(discoverSourcesIsolated({ cwd: project, home }))
+  hideSkills(found.skills, ["crlf"])
+  const text = fs.readFileSync(file, "utf8")
+  assert.equal(text.includes("\r\n"), true)
+  assert.equal(/(?<!\r)\n/.test(text), false)
+  assert.match(text, /opencode\/autoinvoke: false\r\n/)
+  assert.match(text, /body line\r\n/)
 })
 
 test("fix --hide: 没有 frontmatter 的文件也能加", () => {

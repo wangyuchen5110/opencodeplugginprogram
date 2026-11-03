@@ -96,11 +96,39 @@ export function applyFixes(plan, { dryRun = false } = {}) {
   return { moved, errors }
 }
 
-/** 在 frontmatter 里把 metadata.opencode/autoinvoke 设为 false。 */
+/** 先写临时文件再替换，避免隐藏 skill 时把 SKILL.md 写到一半。 */
+function writeFileAtomic(target, data) {
+  const tmp = `${target}.${process.pid}-${Math.random().toString(16).slice(2)}.tmp`
+  fs.writeFileSync(tmp, data)
+  try {
+    fs.renameSync(tmp, target)
+    return
+  } catch (err) {
+    // Windows refuses to rename onto an existing file (EPERM / EEXIST).
+    if (err?.code !== "EPERM" && err?.code !== "EEXIST") {
+      try {
+        fs.rmSync(tmp, { force: true })
+      } catch {}
+      throw err
+    }
+  }
+  try {
+    fs.copyFileSync(tmp, target)
+  } finally {
+    try {
+      fs.rmSync(tmp, { force: true })
+    } catch {}
+  }
+}
+
+/** 在 frontmatter 里把 metadata.opencode/autoinvoke 设为 false。保留原来的换行符。 */
 export function setAutoinvokeFalse(text) {
-  const lines = text.split(/\r?\n/)
+  const source = String(text ?? "")
+  const newline = source.includes("\r\n") ? "\r\n" : "\n"
+  const lines = source.split(/\r?\n/)
   const snippet = ["metadata:", "  opencode/autoinvoke: false"]
-  if (lines[0]?.trim() !== "---") return ["---", ...snippet, "---", ...lines].join("\n")
+  const join = (parts) => parts.join(newline)
+  if (lines[0]?.trim() !== "---") return join(["---", ...snippet, "---", ...lines])
 
   let end = -1
   for (let i = 1; i < lines.length; i++) {
@@ -109,12 +137,12 @@ export function setAutoinvokeFalse(text) {
       break
     }
   }
-  if (end === -1) return ["---", ...snippet, "---", ...lines].join("\n")
+  if (end === -1) return join(["---", ...snippet, "---", ...lines])
 
   const fm = lines.slice(1, end)
   const metaIdx = fm.findIndex((line) => /^metadata\s*:/.test(line.trim()))
   if (metaIdx === -1) {
-    return [lines[0], ...fm, ...snippet, ...lines.slice(end)].join("\n")
+    return join([lines[0], ...fm, ...snippet, ...lines.slice(end)])
   }
 
   const metaIndent = fm[metaIdx].length - fm[metaIdx].trimStart().length
@@ -131,7 +159,7 @@ export function setAutoinvokeFalse(text) {
   }
   if (!replaced) block.unshift(" ".repeat(metaIndent + 2) + "opencode/autoinvoke: false")
 
-  return [lines[0], ...fm.slice(0, metaIdx + 1), ...block, ...fm.slice(j), ...lines.slice(end)].join("\n")
+  return join([lines[0], ...fm.slice(0, metaIdx + 1), ...block, ...fm.slice(j), ...lines.slice(end)])
 }
 
 /**
@@ -154,7 +182,7 @@ export function hideSkills(skills, ids, { dryRun = false } = {}) {
     try {
       if (!dryRun) {
         const text = fs.readFileSync(skill.file, "utf8")
-        fs.writeFileSync(skill.file, setAutoinvokeFalse(text), "utf8")
+        writeFileAtomic(skill.file, setAutoinvokeFalse(text))
       }
       changed.push({ id, file: skill.file })
     } catch (err) {

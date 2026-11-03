@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.5
+
+- `fix --hide` keeps the skill file's original line endings. A CRLF `SKILL.md` is no longer rewritten as LF.
+- Hiding a skill writes the file via a temp file and replace, so a crash mid-write does not leave a truncated `SKILL.md`. On Windows, where rename cannot replace an existing file, it falls back to a copy.
+- Token estimates no longer allocate a match array per string, and the per-step description cost is computed once during scan (`stepTokens`) and reused by `check`, `plan` and the summary.
+- Reference checks cache `exists` results for the duration of one audit.
+- Tests: 71.
+
 ## 0.9.4
 
 - GitHub Marketplace readiness: tighter `action.yml` name/description (97 chars,

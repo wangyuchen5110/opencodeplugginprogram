@@ -105,13 +105,31 @@ export function parseYamlLite(lines) {
 }
 
 const CJK_CHAR = /[\u2e80-\u9fff\uac00-\ud7af\uf900-\ufaff\uff00-\uffef]/
-const CJK_ALL = /[\u2e80-\u9fff\uac00-\ud7af\uf900-\ufaff\uff00-\uffef]/g
 
-/** 粗略 token 估算：CJK 约 1.7 字/token，其余约 4 字符/token。 */
+function isCjkUnit(code) {
+  return (
+    (code >= 0x2e80 && code <= 0x9fff) ||
+    (code >= 0xac00 && code <= 0xd7af) ||
+    (code >= 0xf900 && code <= 0xfaff) ||
+    (code >= 0xff00 && code <= 0xffef)
+  )
+}
+
+/** 粗略 token 估算：CJK 约 1.7 字/token，其余约 4 字符/token。按码元计数，和旧的正则结果一致。 */
 export function estimateTokens(text) {
   const str = String(text ?? "")
-  const cjk = (str.match(CJK_ALL) ?? []).length
+  let cjk = 0
+  for (let i = 0; i < str.length; i++) if (isCjkUnit(str.charCodeAt(i))) cjk++
   return Math.ceil(cjk * 1.7 + (str.length - cjk) / 4)
+}
+
+/**
+ * 一条会被展示给模型的 skill，每步付出的描述 token。
+ * 扫描时已经算过的 `stepTokens` 直接复用；description 被改写（例如精简预览）时重算。
+ */
+export function advertisedStepTokens(skill, description = skill?.description ?? "") {
+  if (skill && description === skill.description && Number.isFinite(skill.stepTokens)) return skill.stepTokens
+  return estimateTokens(`${skill?.id ?? ""} ${skill?.displayName ?? ""} ${description}`)
 }
 
 /** 终端显示宽度（CJK 记 2 列） */

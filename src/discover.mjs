@@ -341,6 +341,7 @@ function buildSkill({ id, file, source, form }) {
   const description = typeof data.description === "string" ? data.description.trim() : ""
   const displayName = typeof data.name === "string" && data.name.trim() ? data.name.trim() : id
   const hidden = autoinvoke === false || disabled === true
+  const stepTokens = estimateTokens(`${id} ${displayName} ${description}`)
   let mtime = 0
   try {
     mtime = fs.statSync(file).mtimeMs
@@ -366,6 +367,7 @@ function buildSkill({ id, file, source, form }) {
     bodyTokens: estimateTokens(body),
     bytes,
     descriptionTokens: estimateTokens(description),
+    stepTokens,
     hash: sha1(body.replace(/\s+/g, " ").trim()),
     mtime,
   }

@@ -1,11 +1,11 @@
-import { estimateTokens } from "./parse.mjs"
+import { advertisedStepTokens } from "./parse.mjs"
 import { resolveWinners } from "./lint.mjs"
 
 export const DEFAULT_DESC_TARGET = 160
 export const DEFAULT_STEPS = 100
 
 function costOf(skill, description = skill.description) {
-  return estimateTokens(`${skill.id} ${skill.displayName} ${description}`)
+  return advertisedStepTokens(skill, description)
 }
 
 /**

@@ -158,7 +158,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: wangyuchen5110/opencodeplugginprogram@v0.9.4
+      - uses: wangyuchen5110/opencodeplugginprogram@v0.9.5
         with:
           budget: "1200"
           fail-on: warn             # error | warn | never

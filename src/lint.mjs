@@ -1,6 +1,6 @@
 import fs from "node:fs"
 import path from "node:path"
-import { estimateTokens } from "./parse.mjs"
+import { advertisedStepTokens } from "./parse.mjs"
 import { extractReferences } from "./refs.mjs"
 import { translator } from "./i18n.mjs"
 
@@ -48,6 +48,7 @@ export function resolveWinners(skills) {
 }
 
 export function lint(skills, options = {}) {
+  existsCache.clear()
   const t = options.t ?? translator("en")
   const budget = options.budget ?? 1200
   const staleDays = options.staleDays ?? 0
@@ -146,7 +147,7 @@ export function lint(skills, options = {}) {
       for (const ref of refs) {
         const target = path.resolve(base, ref)
         if (target !== base && !target.startsWith(base + path.sep)) outsideRefs.push(ref)
-        if (!fs.existsSync(target)) missingRefs.push(ref)
+        if (!pathExists(target)) missingRefs.push(ref)
       }
       if (missingRefs.length) {
         add("broken-reference", "warn", t("lint.brokenReference", { id: skill.id, refs: missingRefs.slice(0, 5).join(", ") }), {
@@ -178,10 +179,7 @@ export function lint(skills, options = {}) {
   // 4) 上下文预算（只算会被模型看到的）
   const advertised = [...winners.values()].filter((s) => s.advertised)
   const described = advertised.filter((s) => s.description)
-  const advertisedTokens = described.reduce(
-    (sum, s) => sum + estimateTokens(`${s.id} ${s.displayName} ${s.description}`),
-    0,
-  )
+  const advertisedTokens = described.reduce((sum, s) => sum + advertisedStepTokens(s), 0)
 
   if (advertisedTokens > budget * 2) {
     add("token-budget", "error", t("lint.tokenBudgetError", { tokens: advertisedTokens, budget }), {
@@ -234,6 +232,16 @@ export function lint(skills, options = {}) {
 
 const SEVERITIES = new Set(["error", "warn", "info"])
 
+const existsCache = new Map()
+
+function pathExists(target) {
+  const cached = existsCache.get(target)
+  if (cached !== undefined) return cached
+  const ok = fs.existsSync(target)
+  existsCache.set(target, ok)
+  return ok
+}
+
 function applyOverrides(findings, options) {
   const overrides = options.ruleOverrides ?? {}
   const ignore = new Set(options.ignore ?? [])
@@ -261,9 +269,7 @@ export function summarize(skills) {
     advertised: advertised.length,
     hidden: [...winners.values()].filter((s) => s.hidden).length,
     shadowed: skills.length - winners.size,
-    advertisedTokens: advertised
-      .filter((s) => s.description)
-      .reduce((sum, s) => sum + estimateTokens(`${s.id} ${s.displayName} ${s.description}`), 0),
+    advertisedTokens: advertised.filter((s) => s.description).reduce((sum, s) => sum + advertisedStepTokens(s), 0),
     bodyTokens: skills.reduce((sum, s) => sum + s.bodyTokens, 0),
   }
 }
