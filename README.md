@@ -14,6 +14,7 @@
   <a href="https://www.npmjs.com/package/opencode-skills-doctor"><img src="https://img.shields.io/npm/dw/opencode-skills-doctor?style=for-the-badge&color=2ea043" alt="npm downloads"></a>
   <a href="https://github.com/wangyuchen5110/opencodeplugginprogram/stargazers"><img src="https://img.shields.io/github/stars/wangyuchen5110/opencodeplugginprogram?style=for-the-badge&color=58a6ff" alt="GitHub stars"></a>
   <a href="https://github.com/wangyuchen5110/opencodeplugginprogram/actions/workflows/test.yml"><img src="https://github.com/wangyuchen5110/opencodeplugginprogram/actions/workflows/test.yml/badge.svg" alt="tests"></a>
+  <a href="https://github.com/marketplace/actions/skills-doctor"><img src="https://img.shields.io/badge/GitHub%20Marketplace-skills--doctor-3fb950?style=for-the-badge&logo=github" alt="GitHub Marketplace"></a>
 </p>
 
 <p align="center">
@@ -141,7 +142,8 @@ Nothing to configure for **skills discovery**: it reads `.opencode/skills`, `.cl
 ## Use it in CI (GitHub Action)
 
 A composite action ships in this repo: no install step, no runtime dependencies —
-it runs the checked-out code directly.
+it runs the checked-out code directly. It is listed on the
+[GitHub Marketplace](https://github.com/marketplace/actions/skills-doctor).
 
 ```yaml
 name: skills
