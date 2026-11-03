@@ -165,9 +165,18 @@ jobs:
 ```
 
 It writes a summary to the job page, uploads the HTML report, optionally comments
-on the pull request, and fails the job according to `fail-on`. Outputs:
-`exit-code`, `error-count`, `warning-count`, `advertised-tokens`. Anything else
-goes through `extra-args` (for example `--no-global`).
+on the pull request, and fails the job according to `fail-on`.
+
+| Input | Default | Purpose |
+|---|---|---|
+| `root` | `.` | Directory to audit |
+| `budget` | `1200` | Description tokens paid per model step |
+| `fail-on` | `error` | Fail on `error`, `warn`, or `never` |
+| `extra-args` | — | Extra `check` flags, e.g. `--no-global` |
+| `html` | — | HTML report path; uploaded as an artifact when set |
+| `comment` | `false` | Post/append the summary as a pull request comment |
+
+Outputs: `exit-code`, `error-count`, `warning-count`, `advertised-tokens`.
 
 ## Commands
 
