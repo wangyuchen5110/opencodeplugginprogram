@@ -1,3 +1,11 @@
+## 0.9.4
+
+- GitHub Marketplace readiness: tighter `action.yml` name/description (97 chars,
+  Marketplace-friendly), branded icon/colour, and a README input/output table for
+  the CI integration.
+- Docs: the action example pins `@v0.9.4`; no runtime code changes.
+- Tests: 70.
+
 # Changelog
 
 ## 0.9.3
