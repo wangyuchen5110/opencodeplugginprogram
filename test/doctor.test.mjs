@@ -12,6 +12,7 @@ import { lint, resolveWinners, summarize } from "../src/lint.mjs"
 import { updateCatalogs, validateCatalogEntry } from "../src/catalog.mjs"
 import { planFixes, applyFixes, hideSkills } from "../src/fix.mjs"
 import { auditSkills, formatMarkdown } from "../src/audit.mjs"
+import { decideFail, renderSummary } from "../scripts/action-summary.mjs"
 import { extractReferences } from "../src/refs.mjs"
 import { renderHtml, writeHtmlReport } from "../src/html.mjs"
 import { handleMessage, toolDefinition, startMcpServer, PROTOCOL_VERSION } from "../src/mcp.mjs"
@@ -1330,4 +1331,55 @@ test("install: 无法解析的 package.json 不会被覆盖", () => {
   const result = installOpenCode({ configDir: dir, version: "1.18.4", installPackage: false })
   assert.ok(result.errors.some((line) => /cannot parse.*package\.json/.test(line)))
   assert.equal(fs.readFileSync(path.join(dir, "package.json"), "utf8"), "{ broken json")
+})
+
+// ---------------------------------------------------------------- GitHub Action
+
+function fakeAudit({ errors = 0, warnings = 0, infos = 0, tokens = 900, budget = 1200, findings = [] } = {}) {
+  return {
+    cwd: "/repo",
+    budget,
+    summary: { total: 2, unique: 2, advertised: 2, hidden: 0, shadowed: 0, advertisedTokens: tokens, bodyTokens: 40 },
+    counts: { errors, warnings, infos },
+    findings,
+  }
+}
+
+test("action: fail-on 三档判定", () => {
+  const clean = fakeAudit()
+  assert.equal(decideFail(clean, "error"), false)
+  assert.equal(decideFail(clean, "warn"), false)
+  assert.equal(decideFail(clean, "never"), false)
+
+  const warned = fakeAudit({ warnings: 2 })
+  assert.equal(decideFail(warned, "error"), false)
+  assert.equal(decideFail(warned, "warn"), true)
+  assert.equal(decideFail(warned, "never"), false)
+
+  const errored = fakeAudit({ errors: 1, warnings: 3 })
+  assert.equal(decideFail(errored, "error"), true)
+  assert.equal(decideFail(errored, "warn"), true)
+  assert.equal(decideFail(errored, "never"), false)
+})
+
+test("action: 摘要包含预算、计数与失败原因", () => {
+  const findings = Array.from({ length: 12 }, (_, index) => ({
+    rule: "long-description",
+    severity: "warn",
+    message: `description ${index} is long | with a pipe`,
+  }))
+  const audit = fakeAudit({ warnings: 12, tokens: 3180, findings })
+  const markdown = renderSummary(audit, { failOn: "warn" })
+
+  assert.match(markdown, /~3180\*\* description tokens\/step — \*\*over\*\* the 1200 budget by 1980/)
+  assert.match(markdown, /`0 error` · `12 warn`/)
+  assert.equal(markdown.split("\n").filter((line) => line.startsWith("| warn | long-description |")).length, 10)
+  assert.match(markdown, /2 more finding\(s\)/)
+  assert.match(markdown, /failing this job: 12 warning\(s\) \(fail-on: `warn`\)/)
+  assert.ok(markdown.includes("with a pipe") && !markdown.includes("long | with"), "table cells escape pipes")
+
+  const clean = renderSummary(fakeAudit(), { failOn: "error" })
+  assert.match(clean, /within the 1200 budget/)
+  assert.match(clean, /No findings/)
+  assert.ok(!clean.includes("failing this job"))
 })

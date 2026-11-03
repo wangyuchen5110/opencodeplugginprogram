@@ -19,3 +19,44 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
       - run: npm test
+
+  action:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Clean fixture must pass
+        id: clean
+        uses: ./
+        with:
+          root: test/fixtures/action-clean
+          budget: "1200"
+          fail-on: error
+          html: ${{ runner.temp }}/skills-report.html
+      - name: Over-budget fixture must fail
+        id: bloated
+        continue-on-error: true
+        uses: ./
+        with:
+          root: test/fixtures/action-over
+          budget: "10"
+          fail-on: error
+      - name: Assert the action reported what it found
+        env:
+          CLEAN_EXIT: ${{ steps.clean.outputs.exit-code }}
+          CLEAN_ERRORS: ${{ steps.clean.outputs.error-count }}
+          BLOATED_OUTCOME: ${{ steps.bloated.outcome }}
+          BLOATED_EXIT: ${{ steps.bloated.outputs.exit-code }}
+          BLOATED_ERRORS: ${{ steps.bloated.outputs.error-count }}
+        run: |
+          set -eu
+          test "$CLEAN_EXIT" = "0"
+          test "$CLEAN_ERRORS" = "0"
+          test "$BLOATED_OUTCOME" = "failure"
+          test "$BLOATED_EXIT" = "1"
+          test "$BLOATED_ERRORS" != "0"
+          echo "action self-test passed"

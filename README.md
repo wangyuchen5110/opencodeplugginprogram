@@ -35,7 +35,7 @@
 
 - [The 30-second version](#the-30-second-version) · [Privacy](#privacy-local-only-no-data-collection)
 - [See it](#see-it) · [How it works](#how-it-works) · [Quick start](#quick-start)
-- [Install](#install) · [Commands](#commands) · [Works where you work](#works-where-you-work)
+- [Install](#install) · [Use it in CI](#use-it-in-ci-github-action) · [Commands](#commands) · [Works where you work](#works-where-you-work)
 - [Why it is safe](#why-it-is-safe) · [Development](#development)
 
 ## The 30-second version
@@ -137,6 +137,37 @@ npx -y opencode-skills-doctor mcp
 ```
 
 Nothing to configure for **skills discovery**: it reads `.opencode/skills`, `.claude/skills`, `.agents/skills`, `.grok/skills`, `.cursor/skills`, `.hermes/skills`, `.kimi-code/skills`, `.dsh/skills` (plus `$DSH_HOME`) and their user-level equivalents. See the [full reference](docs/REFERENCE.md) for OpenCode 1.x, DSH YAML, Codex TOML and Claude Code details.
+
+## Use it in CI (GitHub Action)
+
+A composite action ships in this repo: no install step, no runtime dependencies —
+it runs the checked-out code directly.
+
+```yaml
+name: skills
+on: [push, pull_request]
+
+permissions:
+  contents: read
+  pull-requests: write # only needed for `comment: true`
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: wangyuchen5110/opencodeplugginprogram@v0.9.2
+        with:
+          budget: "1200"
+          fail-on: warn             # error | warn | never
+          html: skills-report.html  # written and uploaded as an artifact
+          comment: "true"           # post the summary on the PR
+```
+
+It writes a summary to the job page, uploads the HTML report, optionally comments
+on the pull request, and fails the job according to `fail-on`. Outputs:
+`exit-code`, `error-count`, `warning-count`, `advertised-tokens`. Anything else
+goes through `extra-args` (for example `--no-global`).
 
 ## Commands
 

@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.9.2
+
+- GitHub Action (`action.yml`): composite action with `budget`, `fail-on`
+  (`error` / `warn` / `never`), `extra-args`, `html` + artifact upload, an
+  optional pull request comment, a job summary, and outputs (`exit-code`,
+  `error-count`, `warning-count`, `advertised-tokens`). It runs the checked-out
+  repository directly - no install step, no runtime dependencies.
+- `scripts/action-summary.mjs`: renders the JSON report as GitHub-flavoured
+  markdown and decides the gate; covered by tests.
+- CI: a self-test job runs the action against a clean fixture (must pass) and an
+  over-budget fixture (must fail), asserting the outputs.
+- Removed a stale nested copy of the old repository layout from the working tree.
+- Tests: 70.
+
 ## 0.9.1
 
 Bug fixes from a full review:

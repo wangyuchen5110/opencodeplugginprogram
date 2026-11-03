@@ -1,0 +1,143 @@
+name: skills-doctor
+description: Audit the skills your coding agent loads — per-step token budget, shadowed duplicates and broken references.
+author: wangyuchen5110
+
+branding:
+  icon: activity
+  color: green
+
+inputs:
+  root:
+    description: "Directory to audit (defaults to the workspace root)."
+    required: false
+    default: "."
+  budget:
+    description: "Description token budget per model step."
+    required: false
+    default: "1200"
+  fail-on:
+    description: "Fail the job on `error`, `warn`, or `never`."
+    required: false
+    default: "error"
+  extra-args:
+    description: "Additional flags forwarded to `skills-doctor check` (space separated)."
+    required: false
+    default: ""
+  html:
+    description: "Write an HTML report to this path (relative to the workspace) and upload it as an artifact."
+    required: false
+    default: ""
+  artifact-name:
+    description: "Artifact name for the HTML report."
+    required: false
+    default: "skills-report"
+  comment:
+    description: "Post the summary as a pull request comment (requires `pull-requests: write`)."
+    required: false
+    default: "false"
+  github-token:
+    description: "Token used for the optional pull request comment."
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  exit-code:
+    description: "0 when the audit passes, 1 when it fails the configured fail-on mode."
+    value: ${{ steps.summary.outputs.gate }}
+  error-count:
+    description: "Number of errors in the audit."
+    value: ${{ steps.summary.outputs.errors }}
+  warning-count:
+    description: "Number of warnings in the audit."
+    value: ${{ steps.summary.outputs.warnings }}
+  advertised-tokens:
+    description: "Description tokens paid per model step."
+    value: ${{ steps.summary.outputs.tokens }}
+
+runs:
+  using: composite
+  steps:
+    - name: Check Node.js
+      shell: bash
+      run: |
+        if ! node -e 'process.exit(Number(process.versions.node.split(".")[0]) >= 20 ? 0 : 1)'; then
+          echo "::error::skills-doctor requires Node.js >= 20 (found $(node --version 2>/dev/null || echo none))."
+          exit 1
+        fi
+
+    - name: Audit skills
+      shell: bash
+      env:
+        INPUT_ROOT: ${{ inputs.root }}
+        INPUT_BUDGET: ${{ inputs.budget }}
+        INPUT_EXTRA: ${{ inputs.extra-args }}
+        INPUT_HTML: ${{ inputs.html }}
+      run: |
+        set -euo pipefail
+        args=(check --json --root "$INPUT_ROOT" --budget "$INPUT_BUDGET")
+        if [ -n "$INPUT_HTML" ]; then
+          args+=(--html "$INPUT_HTML")
+        fi
+        # shellcheck disable=SC2086
+        node "$GITHUB_ACTION_PATH/bin/skills-doctor.mjs" "${args[@]}" $INPUT_EXTRA > "$RUNNER_TEMP/skills-audit.json" || true
+        if [ ! -s "$RUNNER_TEMP/skills-audit.json" ]; then
+          echo "::error::skills-doctor produced no JSON report."
+          exit 1
+        fi
+
+    - name: Summarize
+      id: summary
+      shell: bash
+      env:
+        INPUT_FAIL_ON: ${{ inputs.fail-on }}
+      run: |
+        set -euo pipefail
+        set +e
+        node "$GITHUB_ACTION_PATH/scripts/action-summary.mjs" \
+          "$RUNNER_TEMP/skills-audit.json" \
+          --fail-on "$INPUT_FAIL_ON" \
+          --out "$RUNNER_TEMP/skills-summary.md"
+        gate=$?
+        set -e
+        cat "$RUNNER_TEMP/skills-summary.md" >> "$GITHUB_STEP_SUMMARY"
+        cat "$RUNNER_TEMP/skills-summary.md"
+        node -e '
+          const fs = require("node:fs")
+          const audit = JSON.parse(fs.readFileSync(process.argv[1], "utf8").replace(/^\uFEFF/, ""))
+          const gate = process.argv[2]
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `gate=${gate}\nerrors=${audit.counts.errors}\nwarnings=${audit.counts.warnings}\ntokens=${audit.summary.advertisedTokens}\n`)
+        ' "$RUNNER_TEMP/skills-audit.json" "$gate"
+
+    - name: Upload HTML report
+      if: ${{ inputs.html != '' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ inputs.html }}
+        if-no-files-found: warn
+        retention-days: 14
+
+    - name: Comment on pull request
+      if: ${{ always() && inputs.comment == 'true' && github.event.pull_request }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+      run: |
+        set -euo pipefail
+        if [ -s "$RUNNER_TEMP/skills-summary.md" ]; then
+          gh pr comment "$PR_NUMBER" --body-file "$RUNNER_TEMP/skills-summary.md" || \
+            echo "::warning::could not post the pull request comment (check `pull-requests: write`)."
+        fi
+
+    - name: Enforce result
+      shell: bash
+      env:
+        GATE: ${{ steps.summary.outputs.gate }}
+        FAIL_ON: ${{ inputs.fail-on }}
+      run: |
+        if [ "${GATE:-0}" != "0" ]; then
+          echo "::error::skills-doctor failed the configured gate (fail-on: ${FAIL_ON})."
+          exit 1
+        fi
+        echo "skills-doctor: audit passed."
