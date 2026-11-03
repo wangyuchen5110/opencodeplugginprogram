@@ -14,6 +14,11 @@ export function expandHome(p, home = os.homedir()) {
 
 /** 去掉 JSONC 的注释和尾逗号，字符串内的内容不动。 */
 export function stripJsonc(text) {
+  return stripTrailingCommas(stripJsonComments(text))
+}
+
+/** First pass: drop `//` and `/* *\/` comments, leaving strings untouched. */
+function stripJsonComments(text) {
   let out = ""
   let inString = false
   let escaped = false
@@ -63,7 +68,41 @@ export function stripJsonc(text) {
     out += ch
   }
 
-  return out.replace(/,(\s*[}\]])/g, "$1")
+  return out
+}
+
+/**
+ * Second pass: drop commas that only precede a closing brace/bracket.
+ * Done character by character so a `,}` inside a string survives.
+ */
+function stripTrailingCommas(text) {
+  let out = ""
+  let inString = false
+  let escaped = false
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
+    if (inString) {
+      out += ch
+      if (escaped) escaped = false
+      else if (ch === "\\") escaped = true
+      else if (ch === '"') inString = false
+      continue
+    }
+    if (ch === '"') {
+      inString = true
+      out += ch
+      continue
+    }
+    if (ch === ",") {
+      let j = i + 1
+      while (j < text.length && /\s/.test(text[j])) j++
+      if (text[j] === "}" || text[j] === "]") continue
+    }
+    out += ch
+  }
+
+  return out
 }
 
 export function readJsoncFile(file) {
@@ -280,8 +319,12 @@ function walkForSkillMd(dir, source, out, depth, seen) {
 
 function buildSkill({ id, file, source, form }) {
   let text = ""
+  let bytes = 0
   try {
-    text = fs.readFileSync(file, "utf8")
+    const buffer = fs.readFileSync(file)
+    bytes = buffer.length
+    // Strip a UTF-8 BOM so the frontmatter fence is found (Windows editors add one).
+    text = buffer.toString("utf8").replace(/^\uFEFF/, "")
   } catch {
     text = ""
   }
@@ -321,7 +364,7 @@ function buildSkill({ id, file, source, form }) {
     body,
     bodyChars: body.trim().length,
     bodyTokens: estimateTokens(body),
-    bytes: Buffer.byteLength(text),
+    bytes,
     descriptionTokens: estimateTokens(description),
     hash: sha1(body.replace(/\s+/g, " ").trim()),
     mtime,

@@ -236,12 +236,17 @@ export function installOpenCode({
   const pkgFile = path.join(dir, "package.json")
   const pkgText = readText(pkgFile)
   let pkg = {}
+  let pkgParsed = pkgText === null
   if (pkgText !== null) {
     try {
       pkg = JSON.parse(pkgText)
-    } catch {}
+      pkgParsed = true
+    } catch (err) {
+      // Never overwrite a package.json we could not parse - that would drop it.
+      errors.push(`cannot parse ${pkgFile}: ${String(err?.message ?? err)}`)
+    }
   }
-  if (pkg.type !== "module") {
+  if (pkgParsed && pkg.type !== "module") {
     if (!dryRun) {
       pkg.type = "module"
       fs.writeFileSync(pkgFile, JSON.stringify(pkg, null, 2) + "\n", "utf8")

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.9.1
+
+Bug fixes from a full review:
+
+- A `SKILL.md` saved with a UTF-8 BOM was treated as having no frontmatter (silent `missing-description`, the skill vanished from the model-facing list). The BOM is now stripped before parsing; `bytes` still reflects the real file size.
+- JSONC parsing corrupted string values containing `,}` or `,]` while removing trailing commas. Trailing-comma removal is now character-based and string-aware.
+- `update` no longer downgrades a lock written by a newer version: it refuses to rewrite it and reports an error instead.
+- Catalog entries with an unsafe `name` (`../x`, `a/b`, absolute paths) could write **outside** the target directory. `name` must now be one plain path segment, and unsafe names coming from an old/tampered lock are never used for pruning.
+- `install` no longer silently overwrites a config-dir `package.json` it cannot parse; it reports an error and leaves the file untouched.
+- Tests: 68.
+
 ## 0.9.0
 
 - Discovery: DeepSeek Harness skill roots are now scanned - `$DSH_HOME/skills` (default `~/.dsh/skills`) and project `.dsh/skills`. `install --client dsh` used to install a skill the auditor could never see.

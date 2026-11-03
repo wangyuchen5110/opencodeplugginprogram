@@ -6,10 +6,13 @@ import { createHash } from "node:crypto"
 
 /** @param {string} text */
 export function parseFrontmatter(text) {
-  const empty = { data: {}, body: text, hasFrontmatter: false }
-  if (!text.startsWith("---")) return empty
+  // A UTF-8 BOM (Windows editors add one) would otherwise hide the opening `---`
+  // and make the whole skill look like it has no frontmatter.
+  const source = String(text ?? "").replace(/^\uFEFF/, "")
+  const empty = { data: {}, body: source, hasFrontmatter: false }
+  if (!source.startsWith("---")) return empty
 
-  const lines = text.split(/\r?\n/)
+  const lines = source.split(/\r?\n/)
   if (lines[0].trim() !== "---") return empty
 
   let end = -1

@@ -1264,3 +1264,70 @@ test("lint: 描述近似检测在大小排序后仍命中，且小集合提前�
   assert.ok(near, "expected a near-duplicate finding")
   assert.ok(/long-a|long-b/.test(near.message))
 })
+
+// ---------------------------------------------------------------- bug fixes
+
+test("parse: UTF-8 BOM 的 SKILL.md 仍能解析 frontmatter", () => {
+  const parsed = parseFrontmatter("\uFEFF---\nname: bom\ndescription: bom skill\n---\n\nbody\n")
+  assert.equal(parsed.hasFrontmatter, true)
+  assert.equal(parsed.data.description, "bom skill")
+
+  const project = tmpdir()
+  fs.mkdirSync(path.join(project, ".git"))
+  const dir = path.join(project, ".opencode", "skills", "bom")
+  fs.mkdirSync(dir, { recursive: true })
+  fs.writeFileSync(path.join(dir, "SKILL.md"), "\uFEFF---\nname: bom\ndescription: bom skill\n---\n\nbody\n", "utf8")
+
+  const audit = auditSkills({ cwd: project, includeGlobal: false, lang: "en" })
+  const found = audit.skills.find((s) => s.id === "bom")
+  assert.equal(found.advertised, true)
+  assert.equal(found.description, "bom skill")
+})
+
+test("jsonc: 字符串里的 ,} / ,] 不会被当成尾逗号", () => {
+  const text = '{"note": "a,}", "list": [1, 2,], "x": "keep,]"}'
+  assert.deepEqual(JSON.parse(stripJsonc(text)), { note: "a,}", list: [1, 2], x: "keep,]" })
+})
+
+test("catalog: 条目 name 不能逃出目标目录（路径穿越）", async () => {
+  const into = tmpdir()
+  const payload = { skills: [{ name: "../escape", version: "1.0.0", files: ["SKILL.md"] }] }
+  const fetchImpl = async (url) => {
+    const href = String(url)
+    if (href.endsWith("/index.json")) return { ok: true, status: 200, json: async () => payload }
+    const body = Buffer.from("pwned")
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({}),
+      arrayBuffer: async () => body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength),
+    }
+  }
+  const out = await updateCatalogs([{ url: "https://example.test/cat" }], { into, fetchImpl })
+  assert.equal(out.results[0].invalid.length, 1)
+  assert.match(out.results[0].invalid[0].problems.join(" "), /unsafe skill name/)
+  assert.equal(fs.existsSync(path.join(path.dirname(into), "escape", "SKILL.md")), false)
+})
+
+test("catalog: 不降级更新的 lock（lockTooNew 拒绝改写）", async () => {
+  const into = tmpdir()
+  const lockFile = path.join(into, ".skills-doctor.lock.json")
+  fs.mkdirSync(into, { recursive: true })
+  fs.writeFileSync(lockFile, JSON.stringify({ version: 99, catalogs: {}, future: 1 }))
+  const fetchImpl = async () => ({ ok: true, status: 200, json: async () => ({ skills: [] }) })
+  const out = await updateCatalogs([{ url: "https://example.test/cat" }], { into, fetchImpl })
+  assert.equal(out.lockTooNew, true)
+  assert.match(out.results[0].error, /lock version 99/)
+  const lock = JSON.parse(fs.readFileSync(lockFile, "utf8"))
+  assert.equal(lock.version, 99)
+  assert.equal(lock.future, 1)
+})
+
+test("install: 无法解析的 package.json 不会被覆盖", () => {
+  const dir = tmpdir()
+  fs.writeFileSync(path.join(dir, "opencode.json"), JSON.stringify({ plugin: [] }, null, 2))
+  fs.writeFileSync(path.join(dir, "package.json"), "{ broken json")
+  const result = installOpenCode({ configDir: dir, version: "1.18.4", installPackage: false })
+  assert.ok(result.errors.some((line) => /cannot parse.*package\.json/.test(line)))
+  assert.equal(fs.readFileSync(path.join(dir, "package.json"), "utf8"), "{ broken json")
+})

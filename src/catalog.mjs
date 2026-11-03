@@ -19,6 +19,20 @@ function safeRelPath(p) {
   return true
 }
 
+/**
+ * A catalog entry name becomes a directory under the target root, so it must be
+ * exactly one plain path segment - otherwise `../x` or `a/b` escapes `into`.
+ */
+function safeSkillName(name) {
+  if (typeof name !== "string") return false
+  const value = name.trim()
+  if (!value || value === "." || value === "..") return false
+  if (value.includes("/") || value.includes("\\")) return false
+  if (path.isAbsolute(value)) return false
+  if (/^[a-z][a-z0-9+.-]*:/i.test(value)) return false
+  return true
+}
+
 function resolveInside(baseDir, rel, t) {
   const base = path.resolve(baseDir)
   const target = path.resolve(base, rel)
@@ -32,6 +46,7 @@ export function validateCatalogEntry(entry, t = translator("en")) {
   const problems = []
   if (!entry || typeof entry !== "object") return [t("catalog.entryNotObject")]
   if (typeof entry.name !== "string" || !entry.name.trim()) problems.push(t("catalog.missingName"))
+  else if (!safeSkillName(entry.name)) problems.push(t("catalog.safeName", { name: entry.name }))
   if (typeof entry.version !== "string" && typeof entry.version !== "number") {
     problems.push(t("catalog.missingVersion"))
   }
@@ -151,6 +166,26 @@ export async function updateCatalogs(
   const lockTooNew = Number(lock.version ?? 1) > LOCK_VERSION
   const results = []
 
+  // Never rewrite a lock written by a newer tool: its semantics are unknown and
+  // downgrading it could silently break drift detection for that version.
+  if (lockTooNew) {
+    return {
+      lockPath,
+      lockTooNew,
+      results: catalogs.map((catalog) => ({
+        url: catalog.url,
+        error: t("catalog.lockTooNew", { found: lock.version, supported: LOCK_VERSION }),
+        updated: [],
+        unchanged: [],
+        invalid: [],
+        orphaned: [],
+        pruned: [],
+        removedFiles: [],
+        files: 0,
+      })),
+    }
+  }
+
   for (const catalog of catalogs) {
     const result = {
       url: catalog.url,
@@ -226,7 +261,8 @@ export async function updateCatalogs(
       const validNames = new Set(
         skills.filter((entry) => validateCatalogEntry(entry, t).length === 0).map((entry) => entry.name),
       )
-      const orphaned = Object.keys(previousSkills).filter((name) => !validNames.has(name))
+      // A tampered or older lock can carry unsafe names; never touch those paths.
+      const orphaned = Object.keys(previousSkills).filter((name) => safeSkillName(name) && !validNames.has(name))
       result.orphaned = orphaned
 
       if (!checkOnly) {
