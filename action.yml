@@ -1,5 +1,5 @@
 name: skills-doctor
-description: Audit the skills your coding agent loads — per-step token budget, shadowed duplicates and broken references.
+description: Audit your agent skills in CI — per-step token budget, shadowed duplicates and broken references.
 author: wangyuchen5110
 
 branding:
