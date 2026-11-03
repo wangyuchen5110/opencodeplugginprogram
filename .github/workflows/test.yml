@@ -18,7 +18,22 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
-      - run: npm test
+      - name: Test
+        if: runner.os != 'macOS'
+        run: npm test
+      - name: Test (annotate failures)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set +e
+          npm test 2>&1 | tee "$RUNNER_TEMP/skills-test.log"
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            grep -E '✖|not ok|AssertionError|Error:' "$RUNNER_TEMP/skills-test.log" | head -40 | while IFS= read -r line; do
+              echo "::error title=failing test::$(echo "$line" | sed 's/"/\\"/g' | cut -c1-400)"
+            done
+          fi
+          exit "$status"
 
   action:
     runs-on: ubuntu-latest
