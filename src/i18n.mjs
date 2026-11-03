@@ -193,7 +193,7 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
       'Both {flat} and {dir} exist in the same source (ID "{id}"), semantics are ambiguous',
     "lint.duplicateContent": "These skills have identical bodies: {ids}",
     "lint.nearDuplicate":
-      '"{a}" and "{b}" descriptions are {score}% similar; the model may pick the wrong one',
+      '"{a}" and "{b}" overlap {score}% on {terms}; the model may pick the wrong one',
     "lint.missingDescription":
       '"{id}" has no description, so the model will not discover it (only explicit @{id})',
     "lint.longDescription": '"{id}" description is {chars} chars; it is paid on every model step',
@@ -420,7 +420,7 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
       'ID "{id}" 有 {count} 处定义，实际生效的是 {winner}；其余 {losers} 处被遮蔽（白占体积、容易改错文件）',
     "lint.flatDirCollision": '同一来源同时存在 {flat} 与 {dir}（ID 都是 "{id}"），语义不明确',
     "lint.duplicateContent": "这些 skill 的正文完全相同：{ids}",
-    "lint.nearDuplicate": '"{a}" 与 "{b}" 的描述相似度 {score}%，模型容易选错',
+    "lint.nearDuplicate": '"{a}" 与 "{b}" 在 {terms} 上重叠 {score}%，模型容易选错',
     "lint.missingDescription": '"{id}" 没有 description，模型不会发现它（只能 @{id} 手动加载）',
     "lint.longDescription": '"{id}" 的 description 有 {chars} 字符，每个模型步骤都会占上下文',
     "lint.hiddenSkill": '"{id}" 被隐藏（autoinvoke/disable-model-invocation），不会出现在模型列表里',

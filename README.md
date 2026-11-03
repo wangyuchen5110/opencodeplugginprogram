@@ -5,8 +5,8 @@
 <h1 align="center">skills-doctor</h1>
 
 <p align="center">
-  <b>Audit, fix and update the skills your coding agent loads.</b><br>
-  Measure the per-step token tax, find shadowed duplicates and broken references — then fix them safely.
+  <b>Audit the token cost your coding agent pays for skills on every step.</b><br>
+  A word-piece estimate, boilerplate-aware overlap, and a plan that keeps the routing sentence and hides the redundant skill first.
 </p>
 
 <p align="center">
@@ -48,7 +48,7 @@ Every agent skill with a `description` is advertised to the model on **every sin
 | | |
 |---|---|
 | **Find** | token budget, shadowed duplicates, flat/dir collisions, long descriptions, oversized bodies, broken references, invalid frontmatter, stale skills |
-| **Fix** | archive shadowed definitions (reversible), hide low-frequency skills, trim descriptions with a measured plan |
+| **Fix** | archive shadowed definitions (reversible), hide redundant skills before unique ones, keep the routing sentence in the plan |
 | **Update** | sync skills from HTTP catalogs with a lockfile, drift detection and `--prune` |
 | **Report** | terminal, JSON, or a self-contained HTML report |
 | **Run it** | CLI · OpenCode plugin (1.x/2.x/Desktop) · MCP server · DeepSeek Harness skill |
@@ -158,7 +158,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: wangyuchen5110/opencodeplugginprogram@v0.9.5
+      - uses: wangyuchen5110/opencodeplugginprogram@v0.9.6
         with:
           budget: "1200"
           fail-on: warn             # error | warn | never
@@ -185,7 +185,7 @@ Outputs: `exit-code`, `error-count`, `warning-count`, `advertised-tokens`.
 | Command | What it does |
 |---|---|
 | `check` | audit sources, conflicts, budget and broken references (default) |
-| `plan` | exact token savings: what to trim, what to hide, projected over N steps |
+| `plan` | savings from keeping the first sentence, then hiding redundant skills first, projected over N steps |
 | `scan` | every skill with its source, precedence and cost |
 | `fix` | archive shadowed definitions (reversible) or hide low-frequency skills |
 | `update` | sync skills from HTTP catalogs, verify hashes, detect drift |
@@ -219,7 +219,7 @@ All commands accept `--json`, `--lang en|zh`, `--budget`, `--root` and `--no-glo
 ## Development
 
 ```powershell
-npm test          # 58 tests (node test/doctor.test.mjs)
+npm test          # 73 tests (node test/doctor.test.mjs)
 npm run bench     # lint timing for 100/500/1000 skills
 ```
 

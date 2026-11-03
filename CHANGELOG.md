@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.6
+
+- Token estimate is a word-piece count: a short English word is 1 token, each CJK character is 1, longer words add one token per four extra characters. `hello` is no longer counted as 2.
+- Near-duplicate detection ignores boilerplate ("use this skill when the user wants…") and also flags a shorter trigger that is contained in a longer one. The finding names the overlapping words.
+- `plan` keeps the first routing sentence instead of a 160-character slice, and hides the redundant skill before a unique one when the budget is short.
+- Tests: 73.
+
 ## 0.9.5
 
 - `fix --hide` keeps the skill file's original line endings. A CRLF `SKILL.md` is no longer rewritten as LF.

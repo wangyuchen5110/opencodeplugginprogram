@@ -1,27 +1,36 @@
 import fs from "node:fs"
 import path from "node:path"
-import { advertisedStepTokens } from "./parse.mjs"
+import { advertisedStepTokens, distinctiveTokenSet } from "./parse.mjs"
 import { extractReferences } from "./refs.mjs"
 import { translator } from "./i18n.mjs"
 
 export const SEVERITY_ORDER = { error: 0, warn: 1, info: 2 }
 
 const ID_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/
-const NEAR_DUPLICATE_THRESHOLD = 0.75
+const JACCARD_THRESHOLD = 0.72
+const CONTAINMENT_THRESHOLD = 0.85
+const MIN_SHARED = 3
+const MIN_SIZE_RATIO = 0.5
 
-function tokenSet(text) {
-  const tokens = String(text ?? "")
-    .toLowerCase()
-    .split(/[^\p{L}\p{N}]+/u)
-    .filter((t) => t.length >= 2)
-  return new Set(tokens)
-}
-
-function jaccard(a, b) {
-  if (!a.size || !b.size) return 0
-  let inter = 0
-  for (const t of a) if (b.has(t)) inter++
-  return inter / (a.size + b.size - inter)
+/** 两个描述有多容易让模型选错。套话已在 distinctiveTokenSet 里去掉。 */
+export function pairOverlap(a, b) {
+  if (!a?.size || !b?.size) return { jaccard: 0, containment: 0, shared: 0, terms: [] }
+  const small = a.size <= b.size ? a : b
+  const large = small === a ? b : a
+  let shared = 0
+  const terms = []
+  for (const token of small) {
+    if (!large.has(token)) continue
+    shared++
+    if (terms.length < 4) terms.push(token)
+  }
+  if (!shared) return { jaccard: 0, containment: 0, shared: 0, terms: [] }
+  return {
+    jaccard: shared / (a.size + b.size - shared),
+    containment: shared / small.size,
+    shared,
+    terms,
+  }
 }
 
 function byId(skills) {
@@ -201,28 +210,34 @@ export function lint(skills, options = {}) {
     })
   }
 
-  // 5) 描述近似（token 集合只算一次；按大小升序后用 Jaccard 上界提前结束）
+  // 5) 描述近似：丢掉套话后看 Jaccard，以及短描述是否被长描述包含。
+  // 按特征数升序，|a|/|b| 低于 MIN_SIZE_RATIO 后不可能再达到任一门槛。
   const withDesc = described
-    .map((skill) => ({ skill, tokens: tokenSet(skill.description) }))
-    .filter((entry) => entry.tokens.size > 0)
-    .sort((x, y) => x.tokens.size - y.tokens.size)
+    .map((skill) => ({ skill, tokens: distinctiveTokenSet(skill.description) }))
+    .filter((entry) => entry.tokens.size >= MIN_SHARED)
+    .sort((x, y) => x.tokens.size - y.tokens.size || x.skill.id.localeCompare(y.skill.id))
   const pairs = []
   for (let i = 0; i < withDesc.length; i++) {
     const a = withDesc[i]
     for (let j = i + 1; j < withDesc.length; j++) {
       const b = withDesc[j]
       if (a.skill.id === b.skill.id) continue
-      // 大小升序：a 为空集已过滤，|a|/|b| 随 j 单调下降，低于阈值后再无可能命中。
-      if (a.tokens.size / b.tokens.size < NEAR_DUPLICATE_THRESHOLD) break
-      const score = jaccard(a.tokens, b.tokens)
-      if (score >= NEAR_DUPLICATE_THRESHOLD) pairs.push({ a: a.skill.id, b: b.skill.id, score })
+      if (a.tokens.size / b.tokens.size < MIN_SIZE_RATIO) break
+      const overlap = pairOverlap(a.tokens, b.tokens)
+      if (overlap.shared < MIN_SHARED) continue
+      const byJaccard = overlap.jaccard >= JACCARD_THRESHOLD
+      const byContainment = overlap.containment >= CONTAINMENT_THRESHOLD
+      if (!byJaccard && !byContainment) continue
+      const score = Math.max(overlap.jaccard, overlap.containment)
+      pairs.push({ a: a.skill.id, b: b.skill.id, score, terms: overlap.terms.join(", ") })
     }
   }
+  pairs.sort((x, y) => y.score - x.score || x.a.localeCompare(y.a))
   for (const pair of pairs.slice(0, 15)) {
     add(
       "near-duplicate-description",
       "warn",
-      t("lint.nearDuplicate", { a: pair.a, b: pair.b, score: (pair.score * 100).toFixed(0) }),
+      t("lint.nearDuplicate", { a: pair.a, b: pair.b, score: (pair.score * 100).toFixed(0), terms: pair.terms }),
       { skills: [pair.a, pair.b] },
     )
   }

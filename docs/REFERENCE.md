@@ -17,7 +17,7 @@ Local scanner, linter, fixer, updater and **OpenCode plugin** for agent skills �
 | **Plan** | exact token savings: trim descriptions and/or hide skills, projected over N steps |
 | **Cost** | CLI: 0 tokens. Plugin: ~191 tokens/step for the tool definition, plus a one-time warning per session |
 | **Requirements** | Node ≥ 20, zero runtime dependencies |
-| **Quality** | 58 tests, CI on ubuntu/macos/windows × Node 20/22/24 |
+| **Quality** | 73 tests, CI on ubuntu/macos/windows × Node 20/22/24 |
 
 ## Why
 
@@ -438,7 +438,7 @@ It merges `skills-doctor` into `~/.kimi-code/mcp.json` (or `$KIMI_CODE_HOME/mcp.
 | `shadowed` | warn | Same ID defined in multiple sources; only one wins, the rest is dead weight and easy to edit by mistake |
 | `flat-dir-collision` | warn | Both `<id>.md` and `<id>/SKILL.md` exist in the same source |
 | `duplicate-content` | warn | Two skills share identical body text |
-| `near-duplicate-description` | warn | Descriptions are ≥ 75% similar; the model may pick the wrong one |
+| `near-duplicate-description` | warn | Distinctive words overlap by ≥ 72%, or a shorter trigger is ≥ 85% contained in a longer one. Shared boilerplate ("use this skill when…") is ignored |
 | `missing-description` | info | No description, so the model never discovers it |
 | `long-description` | warn | Description > 240 chars (paid on every model step) |
 | `large-body` | warn | Body > 4000 tokens (pasted into context when invoked) |
@@ -517,7 +517,7 @@ See [SECURITY.md](../SECURITY.md) for the full threat model, hardening checklist
 **Measurement**
 
 - The default `budget` (1200 tokens) is a recommendation, not a hard limit. Tune it with `.skills-doctor.json` or `--budget`.
-- Token counts are heuristic (CJK ≈ 1.7 chars/token, the rest ≈ 4 chars/token) — good for comparisons, not for billing.
+- Token counts are a word-piece estimate (a short English word is 1 token, each CJK character is 1, longer words add 1 per 4 extra characters). Good for comparisons, not for billing.
 - `check` is offline; ask a catalog for new versions with `update --check-only`.
 - Config precedence is assumed: global config < project config < `skills` array order.
 
@@ -552,7 +552,7 @@ Executing code is free, but the tool definition is part of the model's context. 
 ## Development and contributing
 
 ```powershell
-npm test          # 58 tests (node test/doctor.test.mjs)
+npm test          # 73 tests (node test/doctor.test.mjs)
 npm run bench     # lint timing for 100/500/1000 skills
 ```
 

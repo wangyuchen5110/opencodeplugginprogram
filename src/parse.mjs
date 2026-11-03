@@ -115,12 +115,81 @@ function isCjkUnit(code) {
   )
 }
 
-/** 粗略 token 估算：CJK 约 1.7 字/token，其余约 4 字符/token。按码元计数，和旧的正则结果一致。 */
+function isAsciiWord(code) {
+  return (code >= 48 && code <= 57) || (code >= 65 && code <= 90) || (code >= 97 && code <= 122)
+}
+
+/** 一个英文词在 BPE 里通常是 1 个 token；超过 6 个字符后每 4 个字符再加 1。 */
+function latinWordTokens(length) {
+  if (length <= 6) return 1
+  return 1 + Math.ceil((length - 6) / 4)
+}
+
+/**
+ * 按词切分的 token 估算，比「字符数 / 4」接近模型的真实切法：
+ * - 空白不计
+ * - 每个 CJK 字符 1 token（Grok / Claude / GPT-4o 这一档）
+ * - 英文词 1 token 起，长词和长标识符按每 4 个额外字符加 1
+ * - 连字符会把标识符切开，标点各自计 1
+ */
 export function estimateTokens(text) {
   const str = String(text ?? "")
-  let cjk = 0
-  for (let i = 0; i < str.length; i++) if (isCjkUnit(str.charCodeAt(i))) cjk++
-  return Math.ceil(cjk * 1.7 + (str.length - cjk) / 4)
+  let tokens = 0
+  for (let i = 0; i < str.length; i++) {
+    const code = str.charCodeAt(i)
+    if (code === 32 || code === 9 || code === 10 || code === 13) continue
+    if (isCjkUnit(code)) {
+      tokens++
+      continue
+    }
+    if (isAsciiWord(code)) {
+      let length = 0
+      while (i < str.length && isAsciiWord(str.charCodeAt(i))) {
+        length++
+        i++
+      }
+      i--
+      tokens += latinWordTokens(length)
+      continue
+    }
+    tokens++
+  }
+  return tokens
+}
+
+const STOPWORDS = new Set([
+  "a", "an", "the", "and", "or", "to", "of", "for", "in", "on", "with", "when", "use", "using", "used",
+  "this", "that", "skill", "skills", "user", "users", "want", "wants", "wanted", "please", "from", "into",
+  "by", "as", "is", "are", "be", "it", "its", "their", "your", "you", "if", "then", "than", "via", "over",
+  "about", "how", "what", "which", "can", "will", "just", "also", "not", "but", "at", "we", "our", "them",
+  "的", "了", "和", "与", "或", "在", "为", "用", "使用", "当", "技能", "用户", "一个", "进行", "可以", "这个", "以及", "把", "将", "对", "从",
+])
+
+/**
+ * 描述里真正用来路由的词。丢掉套话（use this skill when…）和过短的英文词。
+ * 中文没有空格，用相邻二字作为特征，避免整句变成一个 token。
+ */
+export function distinctiveTokenSet(text) {
+  const set = new Set()
+  const str = String(text ?? "").toLowerCase()
+  let prevCjk = ""
+  for (let i = 0; i < str.length; i++) {
+    const code = str.charCodeAt(i)
+    if (isCjkUnit(code)) {
+      const ch = str[i]
+      if (prevCjk && !STOPWORDS.has(prevCjk) && !STOPWORDS.has(ch)) set.add(prevCjk + ch)
+      prevCjk = STOPWORDS.has(ch) ? "" : ch
+      continue
+    }
+    prevCjk = ""
+    if (!isAsciiWord(code)) continue
+    let j = i
+    while (j < str.length && isAsciiWord(str.charCodeAt(j))) j++
+    const word = str.slice(i, j)
+    if (word.length >= 3 && !STOPWORDS.has(word)) set.add(word)
+    i = j - 1
+  }
+  return set
 }
 
 /**

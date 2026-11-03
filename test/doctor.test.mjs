@@ -97,9 +97,10 @@ test("frontmatter: 没有 frontmatter 时原样返回", () => {
 })
 
 test("token/宽度估算对 CJK 合理", () => {
-  assert.equal(estimateTokens("你好世界"), 7)
-  assert.equal(estimateTokens("hello"), 2)
-  assert.equal(estimateTokens("你好 hello"), Math.ceil(2 * 1.7 + 6 / 4))
+  assert.equal(estimateTokens("你好世界"), 4)
+  assert.equal(estimateTokens("hello"), 1)
+  assert.equal(estimateTokens("你好 hello"), 3)
+  assert.equal(estimateTokens("openclaw-skills-doctor"), 6)
   assert.equal(displayWidth("abc"), 3)
   assert.equal(displayWidth("中文"), 4)
 })
@@ -1015,12 +1016,15 @@ test("plan: 精简 + 隐藏的 token 账本自洽", () => {
   assert.equal(under.recommended.hides.length, 0)
 })
 
-test("plan: trimDescription 在句子边界截断且不超限", () => {
+test("plan: trimDescription 只留放得进上限的第一句", () => {
   assert.equal(trimDescription("short", 160), "short")
   const text = "First sentence. Second sentence that keeps going and going."
-  const out = trimDescription(text, 20)
-  assert.ok(out.length <= 20)
-  assert.ok(out.endsWith("."))
+  assert.equal(trimDescription(text, 20), "First sentence.")
+  const long = "alpha, beta, gamma, delta, epsilon, zeta and then a very long tail that should not survive the cut."
+  const cut = trimDescription(long, 40)
+  assert.ok(cut.length <= 40)
+  assert.ok(cut.endsWith("gamma") || cut.includes("gamma"))
+  assert.equal(cut.includes("tail"), false)
 })
 
 test("CLI: plan --json 输出结构化方案", async () => {
@@ -1267,6 +1271,32 @@ test("discovery: DSH_HOME 与项目 .dsh/skills 都会被扫描", () => {
   skill(path.join(home, ".dsh", "skills"), "dsh-default-skill")
   const fallback = scanAll(discoverSourcesIsolated({ cwd: project, home, env: {} }))
   assert.ok(fallback.skills.some((s) => s.id === "dsh-default-skill"))
+})
+
+test("lint: 套话相同但触发词不同，不算近似", () => {
+  const project = tmpdir()
+  const home = tmpdir()
+  fs.mkdirSync(path.join(project, ".git"))
+  const prefix = "Please use this skill when the user wants to format lint and review"
+  skill(path.join(project, ".opencode", "skills"), "py-fmt", `description: ${prefix} python modules`)
+  skill(path.join(project, ".opencode", "skills"), "rs-fmt", `description: ${prefix} rust crates`)
+  const found = scanAll(discoverSourcesIsolated({ cwd: project, home }))
+  const findings = lint(found.skills, { budget: 1200 })
+  assert.equal(findings.some((f) => f.rule === "near-duplicate-description"), false)
+})
+
+test("plan: 预算不够时先藏重复描述，独特的留到最后", () => {
+  const project = tmpdir()
+  fs.mkdirSync(path.join(project, ".git"))
+  const shared = "prepare kubernetes rollout manifests for the staging cluster and wait for healthy pods"
+  const unique = "audit postgres migration locks before rewriting the payments ledger schema online"
+  skill(path.join(project, ".opencode", "skills"), "unique-db", `description: ${unique}`)
+  skill(path.join(project, ".opencode", "skills"), "rollout-a", `description: ${shared}`)
+  skill(path.join(project, ".opencode", "skills"), "rollout-b", `description: ${shared} carefully`)
+  const audit = auditSkills({ cwd: project, includeGlobal: false, budget: 10000 })
+  const plan = planBudget(audit, { budget: audit.summary.advertisedTokens - 1 })
+  assert.equal(plan.recommended.hides.length, 1)
+  assert.notEqual(plan.recommended.hides[0].id, "unique-db")
 })
 
 test("lint: 描述近似检测在大小排序后仍命中，且小集合提前结束", () => {

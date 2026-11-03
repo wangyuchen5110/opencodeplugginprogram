@@ -5,8 +5,8 @@
 <h1 align="center">skills-doctor</h1>
 
 <p align="center">
-  <b>审计、修复、更新你的 coding agent 加载的 skill。</b><br>
-  量出每步 token 税，找出遮蔽重复和断链，再安全地修掉。
+  <b>量出 coding agent 每一步为 skill 付出的 token。</b><br>
+  按词估算，丢掉套话重叠，方案只留路由用的第一句，并先藏重复的 skill。
 </p>
 
 <p align="center">
@@ -48,7 +48,7 @@ OpenCode skill 的**本地检测器 + 更新器 + 修复器**，并附带 **Open
 | **形态** | CLI · OpenCode 插件（1.x / 2.x）· MCP server（Claude Code、Codex、DSH…）· 兼容 Grok CLI |
 | **来源** | `.opencode/skills`、`.claude/skills`、`.agents/skills`、`.grok/skills`、`.cursor/skills`、`.hermes/skills`、`.kimi-code/skills`、`.dsh/skills`（含 `$DSH_HOME`）、`opencode.json(c)` 配置、HTTP catalog |
 | **能查** | 同 ID 遮蔽、重复、超长描述、超大正文、每步 token 预算、断链引用、非法 frontmatter、空正文、陈旧 skill |
-| **能修** | 归档遮蔽定义（可逆）、隐藏低频 skill、catalog 同步并检测 drift |
+| **能修** | 归档遮蔽定义（可逆）、先藏重复的 skill、方案只留路由用的第一句 |
 | **报告** | 终端、JSON，或自包含 HTML（`--html [file] --open`） |
 | **规划** | 精确 token 节省：精简描述 / 隐藏 skill，按 N 步折算 |
 | **成本** | CLI 0 token；插件工具定义约 191/步，另有每会话一次预警 |
@@ -488,7 +488,7 @@ npx -y opencode-skills-doctor install --client kimi
 | `shadowed` | warn | 同一 ID 多处定义，只有一份生效，其余白占体积且容易改错 |
 | `flat-dir-collision` | warn | 同一来源同时存在 `<id>.md` 和 `<id>/SKILL.md` |
 | `duplicate-content` | warn | 不同 skill 正文完全相同 |
-| `near-duplicate-description` | warn | 两个 skill 的 description 相似度 ≥ 75%，模型容易选错 |
+| `near-duplicate-description` | warn | 去掉套话后，特征词重叠 ≥ 72%，或较短的触发词有 ≥ 85% 被另一条包含 |
 | `missing-description` | info | 没有 description，模型看不到它 |
 | `long-description` | warn | description > 240 字符（每个模型步骤都占上下文） |
 | `large-body` | warn | 正文 > 4000 tokens（调用时整段进上下文） |
@@ -561,7 +561,7 @@ npx -y opencode-skills-doctor install --client kimi
 **度量**
 
 - 默认 `budget`（1200 tokens）是建议值，不是硬限制；用 `.skills-doctor.json` 或 `--budget` 调整。
-- token 是启发式估算（CJK 约 1.7 字/token，其余约 4 字符/token），用于横向比较，不是精确计费。
+- token 按词估算（短英文词 1 token，每个汉字 1 token，更长的词每多 4 个字符加 1）。用来比较，不是精确计费。
 - `check` 不联网；要看 catalog 新版本用 `update --check-only`。
 - 配置优先级假设：全局配置 < 项目配置 < `skills` 数组顺序。
 
