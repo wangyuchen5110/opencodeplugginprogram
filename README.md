@@ -5,8 +5,8 @@
 <h1 align="center">skills-doctor</h1>
 
 <p align="center">
-  <b>Audit the token cost your coding agent pays for skills on every step.</b><br>
-  A word-piece estimate, boilerplate-aware overlap, and a plan that keeps the routing sentence and hides the redundant skill first.
+  <b>Your skills are quietly taxing every single step.</b><br>
+  29 skills = ~3,074 tokens burned before the model even sees your code.
 </p>
 
 <p align="center">
@@ -32,18 +32,20 @@
 > **Runs 100% locally.** No telemetry, no account, no uploads — your skills,
 > prompts and files never leave your machine. See [Privacy](#privacy-local-only-no-data-collection).
 
-## Contents
+## The hidden tax
 
-- [The 30-second version](#the-30-second-version) · [Privacy](#privacy-local-only-no-data-collection)
-- [See it](#see-it) · [How it works](#how-it-works) · [Quick start](#quick-start)
-- [Install](#install) · [Use it in CI](#use-it-in-ci-github-action) · [Commands](#commands) · [Works where you work](#works-where-you-work)
-- [Why it is safe](#why-it-is-safe) · [Development](#development)
+Every agent skill with a `description` is injected into the system prompt on **every single step**. On a real machine with 29 skills that was **~3,074 tokens** — before the model read a single line of code. Duplicates silently shadow each other. Long descriptions never get trimmed. Broken references go unnoticed.
 
-## The 30-second version
+`skills-doctor` measures the exact cost, shows which definition actually wins, and gives you a concrete plan to cut it:
 
-Every agent skill with a `description` is advertised to the model on **every single step**. On a machine with 29 skills that is **~3,074 tokens per step** — before the model reads a line of your code. Duplicates silently shadow each other, descriptions drift, and references to files that no longer exist go unnoticed.
+```text
+current: ~3,124 tokens/step (30 advertised)   budget: 1,200
 
-`skills-doctor` measures that cost, shows which definition actually wins, and fixes it:
+Recommended: trim 26 + hide 2 → 1,184 tokens/step  (−1,940)
+Over 100 steps that saves ~194,000 tokens.
+```
+
+One command. Runs 100% locally. No account, no telemetry, nothing leaves your machine.
 
 | | |
 |---|---|
@@ -103,17 +105,6 @@ npx -y opencode-skills-doctor plan
 
 # shareable HTML report
 npx -y opencode-skills-doctor check --html report.html --open
-```
-
-Example `plan` output on a real setup:
-
-```text
-current: ~3,124 tokens/step (30 advertised)   budget: 1,200
-
-Option A — trim descriptions   26 skills → 1,606  (−1,518)
-Option B — hide skills         11 skills → 1,200  (−1,924)
-Recommended                     trim 26 + hide 2 → 1,184  (−1,940)
-over 100 steps that saves ~194,000 tokens
 ```
 
 ## Install
