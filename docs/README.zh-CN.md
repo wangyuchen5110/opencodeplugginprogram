@@ -49,9 +49,9 @@ OpenCode skill 的**本地检测器 + 更新器 + 修复器**，并附带 **Open
 | **来源** | `.opencode/skills`、`.claude/skills`、`.agents/skills`、`.grok/skills`、`.cursor/skills`、`.hermes/skills`、`.kimi-code/skills`、`.dsh/skills`（含 `$DSH_HOME`）、`opencode.json(c)` 配置、HTTP catalog |
 | **能查** | 同 ID 遮蔽、重复、超长描述、超大正文、每步 token 预算、断链引用、非法 frontmatter、空正文、陈旧 skill |
 | **能修** | 归档遮蔽定义（可逆）、先藏重复的 skill、方案只留路由用的第一句 |
-| **报告** | 终端、JSON，或自包含 HTML（`--html [file] --open`） |
+| **报告** | OpenCode 对话里的一条通知，加上终端和 JSON |
 | **规划** | 精确 token 节省：精简描述 / 隐藏 skill，按 N 步折算 |
-| **成本** | CLI 0 token；插件工具定义约 191/步，另有每会话一次预警 |
+| **成本** | CLI 0 token；有问题时每个会话在对话里发一条通知 |
 | **要求** | Node ≥ 20，零运行时依赖 |
 | **质量** | 63 个测试，ubuntu/macos/windows × Node 20/22/24 CI |
 
@@ -65,7 +65,7 @@ OpenCode skill 的**本地检测器 + 更新器 + 修复器**，并附带 **Open
 | **不会读** | 对话历史、会话记录、源代码、文档、凭据、API key、环境变量里的密钥 |
 | **不会上传** | 任何东西：没有服务端组件，除下面两个可选联网外没有任何远端地址 |
 | **联网** | 只在你主动触发时发生：`update` 抓取**你自己配置**的 HTTP catalog；`upgrade` / 每日更新检查只读 npm registry 的最新版本号（缓存 24h，可用 `"checkUpdates": "off"`、`SKILLS_DOCTOR_UPDATE_CHECK=0` 或 `--no-update-check` 关闭） |
-| **会写** | 只写你要求的内容：HTML/JSON 报告、`.skills-doctor-archive/`、`.skills-doctor.json`、lockfile，以及 `install` 生成的插件/MCP/skill 条目 |
+| **会写** | 只写你要求的内容：`.skills-doctor-archive/`、`.skills-doctor.json`、lockfile，以及 `install` 生成的插件/MCP/skill 条目 |
 
 `opencode.json(c)` 和 MCP 配置里可能有凭据；它们只在本地被解析用来定位相关条目，值不会被发送，也不会出现在报告里。报告只含文件路径和 skill 描述（本来就是你的 skill 文件内容），不包含正文。`check`、`plan`、`scan`、`fix --dry-run`、`mcp` 都可以在断网环境下运行。
 
@@ -132,20 +132,13 @@ skills-doctor check
 skills-doctor check --json
 skills-doctor check --budget 800 --strict    # CI 用
 skills-doctor check --root .\some-project --no-global
-skills-doctor check --html report.html       # 自包含 HTML 报告
-skills-doctor check --html report.html --open
 ```
 
-### HTML 报告
+### 对话通知
 
-`--html [file]` 生成单个自包含 HTML 文件（无外部资源）：
+OpenCode 2 在你发出第一条消息时，如果有 error 或 warning，就在对话里发一条通知。它是带描述 `skills-doctor` 的 synthetic 消息，会单独占一行，不会再开一轮模型。`/skills-doctor` 会再发一次，没有问题也会说。工具和 MCP 返回同一段短文，不写文件。最多列三条。归档和隐藏仍然要你确认。
 
-- 摘要卡片 + 上下文预算条；
-- 可按严重级别和文本过滤的 findings；
-- skill 表格：来源、token 成本、描述预览、文件路径；
-- 只写 `--html` 不带路径时默认 `./skills-report.html`；`--open` 自动打开浏览器。
-
-插件和 MCP 工具同样接受 `html` 参数，所以可以让 agent 先问你要存哪里——例如：*"把报告存到 D:\reports\skills.html"*。
+OpenCode 1.x 没有这条通知接口，同一段话交给模型，让它在回复里说出来。
 
 ### `plan`（到底能省多少 token？）
 
@@ -162,7 +155,7 @@ skills-doctor plan --json
 - **方案 B**：用最少的隐藏数量把总量压进预算（仍可 `@id` 加载；按单项节省从大到小取，对「最少隐藏数」是最优的）；
 - **推荐方案**：先精简再隐藏，不重复计算，并按 `--steps`（默认 100）折算总节省。
 
-超预算时 `check` 会打印一行提示，HTML 报告里有同样的「potential savings」卡片。
+超预算时 `check` 会打印一行提示。具体方案看 `plan`。
 
 ### `scan`
 
@@ -273,9 +266,8 @@ skills-doctor upgrade --apply    # npm install -g opencode-skills-doctor@latest
 
 它会注册：
 
-- `skills_doctor` 工具（命名空间 `skills`）—— agent 传 `{ directory?, budget?, html? }` 就能拿到 markdown 审计报告；
+- `skills_doctor` 工具（命名空间 `skills`）—— `{ directory?, budget? }` 返回对话简报，不写文件；
 - `/skills-doctor` 命令 —— 让 agent 跑一次审计并总结修复建议；
-- `/skills-report` —— 先问你要把 HTML 报告存到哪里，再写文件；
 - `/skills-upgrade` —— 检查 skills-doctor 自身有没有新版本。
 
 `@opencode/plugin` 是可选 peer 依赖，运行时由 OpenCode 提供。
@@ -317,7 +309,7 @@ npx opencode-skills-doctor install --client desktop
 ```
 
 - 在标准安装位置探测桌面版，并从 `resources/app.asar` 读出内置 core 版本（例如 1.17.11），据此选择对应插件 API；
-- 写入与 CLI 相同的插件条目和 `/skills-doctor`、`/skills-report`、`/skills-upgrade` 命令 —— 装完重启桌面应用；
+- 写入与 CLI 相同的插件条目和 `/skills-doctor`、`/skills-upgrade` 命令 —— 装完重启桌面应用；
 - `--client auto`（默认）在同时装了 CLI 时优先 CLI 版本；`--client opencode` 跳过桌面探测；
 - `uninstall --client desktop` 反向撤销。
 
@@ -332,16 +324,15 @@ npx opencode-skills-doctor install
 安装器会自动识别 OpenCode 版本并接好：
 
 - **2.x** —— 在 `opencode.json(c)` 里加 `"plugins": ["opencode-skills-doctor"]`；
-- **1.x** —— 把包装进 `~/.config/opencode`、写本地插件入口、生成 `/skills-doctor`、`/skills-report`、`/skills-upgrade` 三个 markdown 命令、补 `"type": "module"`；
+- **1.x** —— 把包装进 `~/.config/opencode`、写本地插件入口、生成 `/skills-doctor`、`/skills-upgrade` 两个 markdown 命令、补 `"type": "module"`；
 - 改配置前会备份为 `<config>.bak-<timestamp>`。
 
 支持 `--dry-run` 预览、`--config-dir <dir>` 指定配置目录、`--no-npm` 跳过装包。
 
 装好后你会得到：
 
-- `skills_doctor` 工具（可选 `html` 参数，把报告写到指定路径）；
+- `skills_doctor` 工具，返回对话简报，不写文件；
 - `/skills-doctor` 命令（1.x 是生成的 markdown 命令，2.x 是插件命令）；
-- `/skills-report` 命令（2.x）—— 会先问你要把 HTML 报告存到哪里；
 - `/skills-upgrade` 命令（2.x）—— 检查 skills-doctor 自身是否有新版本；
 - 当 skill 描述预算超标时，系统提示里会注入一次提醒（每个会话最多一次）。
 
@@ -396,7 +387,7 @@ npx -y opencode-skills-doctor install --client dsh
 
 它会找到 `~/.dsh/profiles/<profile>/cordis.patch.yml`（默认 `desktop`，否则用 `--profile <name>`），把 `mcp-skills-doctor` 这一行放在 `- insert:` 块里幂等写入，并把 `skills-doctor-audit` 技能复制到 `~/.dsh/skills/`。重启 DSH（启用 HMR 时会自动重载 patch）加载 MCP 工具；skill 目录有监听，无需重启。
 
-- 工具名 `mcp__skills_doctor__skills_doctor`，参数 `directory`、`budget`、`lang`、`global`、`html`；
+- 工具名 `mcp__skills_doctor__skills_doctor`，参数 `directory`、`budget`、`lang`、`global`；
 - `uninstall --client dsh` 同时移除配置条目和 skill；
 - `--dsh-home <dir>` 用于非默认的 DSH 主目录。
 

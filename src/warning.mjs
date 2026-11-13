@@ -1,4 +1,4 @@
-import { auditSkills } from "./audit.mjs"
+import { auditSkills, formatChat } from "./audit.mjs"
 
 const cache = new Map()
 const warned = new Set()
@@ -15,12 +15,10 @@ export function budgetWarning({ cwd = process.cwd(), sessionID = "global", ttlMs
   let entry = cache.get(cwd)
   if (!entry || now - entry.at > ttlMs) {
     const audit = auditSkills({ cwd, includeGlobal })
-    const over = audit.counts.errors > 0
+    const notable = audit.findings.some((finding) => finding.severity === "error" || finding.severity === "warn")
     entry = {
       at: now,
-      text: over
-        ? `[skills-doctor] ${audit.summary.unique} skills use ~${audit.summary.advertisedTokens} tokens of descriptions per step (budget ${audit.budget}); ${audit.counts.errors} error(s), ${audit.counts.warnings} warning(s). Use the skills_doctor tool for details, then hide low-frequency skills with \`skills-doctor fix --hide <ids>\`.`
-        : null,
+      text: notable ? formatChat(audit) : null,
     }
     cache.set(cwd, entry)
   }

@@ -11,7 +11,7 @@ import { startMcpServer } from "./mcp.mjs"
 import { installOpenCode, uninstallOpenCode } from "./install.mjs"
 import { installDsh, uninstallDsh } from "./dsh.mjs"
 import { installKimi, uninstallKimi } from "./kimi.mjs"
-import { writeHtmlReport, openReport } from "./html.mjs"
+
 import { planBudget } from "./plan.mjs"
 import {
   checkForUpdate,
@@ -80,7 +80,7 @@ function parseArgs(argv) {
     extraDirs: [],
     configDir: null,
     noNpm: false,
-    html: null,
+
     open: false,
     apply: false,
     updateCheck: true,
@@ -173,19 +173,6 @@ function parseArgs(argv) {
         break
       case "--no-npm":
         options.noNpm = true
-        break
-      case "--html": {
-        const next = args[i + 1]
-        if (next && !next.startsWith("-")) {
-          options.html = path.resolve(next)
-          i++
-        } else {
-          options.html = path.resolve("skills-report.html")
-        }
-        break
-      }
-      case "--open":
-        options.open = true
         break
       case "--apply":
         options.apply = true
@@ -838,23 +825,16 @@ export async function main(argv) {
     })
     const result = buildCheckResult(audit, options)
 
-    let htmlPath = null
-    if (options.html) {
-      htmlPath = writeHtmlReport(audit, options.html)
-      if (options.open) openReport(htmlPath)
-    }
-
     if (options.json) {
       console.log(
         JSON.stringify(
-          { ...result, html: htmlPath, skills: serializeSkills(audit.skills, audit.managed) },
+          { ...result, skills: serializeSkills(audit.skills, audit.managed) },
           null,
           2,
         ),
       )
     } else {
       printCheck(audit, result, options, t)
-      if (htmlPath) console.log(dim(t("check.htmlSaved", { path: htmlPath })))
       await maybeNotifyUpdate({ options, config: loaded.config, t })
     }
     process.exitCode = result.exitCode

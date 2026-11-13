@@ -1,5 +1,4 @@
-import { auditSkills, formatMarkdown } from "./audit.mjs"
-import { writeHtmlReport } from "./html.mjs"
+import { auditSkills, formatChat } from "./audit.mjs"
 import { normalizeLang, detectLang } from "./i18n.mjs"
 
 export const PROTOCOL_VERSION = "2025-06-18"
@@ -10,7 +9,7 @@ export function toolDefinition() {
   return {
     name: TOOL_NAME,
     description:
-      "Audit installed agent skills (OpenCode, Claude Code, Grok, Cursor, Hermes, Kimi, DSH): shadowed duplicates, per-step description token budget, oversized bodies and fix hints. Returns a markdown report.",
+      "Audit installed agent skills and return a short briefing to say to the user in the chat. Does not write a file.",
     inputSchema: {
       type: "object",
       properties: {
@@ -30,10 +29,6 @@ export function toolDefinition() {
         global: {
           type: "boolean",
           description: "Include global skill directories such as ~/.config/opencode and ~/.claude (default true)",
-        },
-        html: {
-          type: "string",
-          description: "Optional path; when set, a self-contained HTML report is written there and the path is returned",
         },
       },
       additionalProperties: false,
@@ -91,12 +86,7 @@ export async function handleMessage(message, { version = "0.0.0" } = {}) {
         const lang = normalizeLang(args.lang) ?? detectLang()
 
         const audit = auditSkills({ cwd: directory, budget, lang, includeGlobal: args.global !== false })
-        let text = formatMarkdown(audit)
-        if (typeof args.html === "string" && args.html.trim()) {
-          const file = writeHtmlReport(audit, args.html.trim(), { title: "skills-doctor report" })
-          text += `\n\nHTML report written to \`${file}\``
-        }
-        return ok(id, { content: [{ type: "text", text }] })
+        return ok(id, { content: [{ type: "text", text: formatChat(audit) }] })
       }
 
       default:

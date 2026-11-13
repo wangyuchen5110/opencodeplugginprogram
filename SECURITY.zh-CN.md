@@ -33,7 +33,7 @@
 - **默认不联网。** 只有两个例外：`update` 抓取你配置的 catalog URL；每日更新检查只从 npm registry 读取最新版本号（缓存 24h，可用 `"checkUpdates": "off"`、`SKILLS_DOCTOR_UPDATE_CHECK=0` 或 `--no-update-check` 关闭）。
 - **不读取用户数据。** 只读 skill 文件及其引用资源、agent 配置和自身 lockfile；不读对话历史、会话记录、源代码、文档、模型凭据或 API key，也不上传任何读到的内容。
 - **配置文件可能含密钥**（`opencode.json(c)`、MCP 配置）：只在本地解析以定位需要的条目，值不会被传输、打印或写进报告。
-- **报告是本地文件。** HTML/JSON 报告含文件路径和 skill 描述，不含文件正文；可能暴露目录结构，分享前请自行检查。
+- **报告留在本机。** 终端输出、JSON、PR 评论和对话通知含文件路径和 skill 描述，不含文件正文；可能暴露目录结构，分享前请自行检查。
 - `check`、`plan`、`scan`、`fix --dry-run`、`mcp` 完全离线，可在断网环境运行。
 
 ## 风险点与缓解措施

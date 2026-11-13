@@ -33,8 +33,6 @@ Options:
   --into <dir>         update: output directory (default: .opencode/skills)
   --check-only         update: only report available updates
   --prune              update: delete skills that disappeared from the catalog
-  --html [file]        check: write a self-contained HTML report (default: skills-report.html)
-  --open               check: open the HTML report after writing it
   --config-dir <dir>   install/uninstall: OpenCode config directory (default: ~/.config/opencode)
   --client <name>      install/uninstall: auto | opencode | desktop | dsh | kimi (default auto)
   --profile <name>     dsh: profile to install into (default: desktop, or the only one)
@@ -60,7 +58,6 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
     "check.configError": "  ! cannot parse config: {path} ({error})",
     "check.missingPath": "  ! path in config does not exist: {path}",
     "check.none": "No problems found.",
-    "check.htmlSaved": "  HTML report: {path}",
     "check.summary": "{errors} error, {warnings} warn, {infos} info",
     "check.strict": " (--strict: warnings also fail)",
     "check.hints": "Hints:",
@@ -265,8 +262,6 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
   --into <dir>        update 的落盘目录（默认 .opencode/skills）
   --check-only        update 只报告可用更新，不下载
   --prune             update: 删除 catalog 中已移除的 skill
-  --html [file]       check: 生成自包含 HTML 报告（默认 skills-report.html）
-  --open              check: 写完报告后用浏览器打开
   --config-dir <dir>  install/uninstall: OpenCode 配置目录（默认 ~/.config/opencode）
   --client <name>     install/uninstall: auto | opencode | desktop | dsh | kimi（默认 auto）
   --profile <name>    dsh: 安装到哪个 profile（默认 desktop，或唯一的一个）
@@ -292,7 +287,6 @@ Exit codes: 0 ok; 1 errors (and warnings with --strict); 2 bad arguments or runt
     "check.configError": "  ! 配置文件无法解析: {path}（{error}）",
     "check.missingPath": "  ! 配置里引用的路径不存在: {path}",
     "check.none": "没有发现问题。",
-    "check.htmlSaved": "  HTML 报告: {path}",
     "check.summary": "{errors} error, {warnings} warn, {infos} info",
     "check.strict": "（--strict：warning 也会非 0 退出）",
     "check.hints": "建议:",

@@ -51,7 +51,6 @@ jobs:
           root: test/fixtures/action-clean
           budget: "1200"
           fail-on: error
-          html: ${{ runner.temp }}/skills-report.html
       - name: Over-budget fixture must fail
         id: bloated
         continue-on-error: true

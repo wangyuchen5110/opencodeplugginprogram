@@ -52,7 +52,7 @@ One command. Runs 100% locally. No account, no telemetry, nothing leaves your ma
 | **Find** | token budget, shadowed duplicates, flat/dir collisions, long descriptions, oversized bodies, broken references, invalid frontmatter, stale skills |
 | **Fix** | archive shadowed definitions (reversible), hide redundant skills before unique ones, keep the routing sentence in the plan |
 | **Update** | sync skills from HTTP catalogs with a lockfile, drift detection and `--prune` |
-| **Report** | terminal, JSON, or a self-contained HTML report |
+| **Report** | a short note in the OpenCode chat, plus the terminal and JSON |
 | **Run it** | CLI · OpenCode plugin (1.x/2.x/Desktop) · MCP server · DeepSeek Harness skill |
 
 ## Privacy: local-only, no data collection
@@ -65,17 +65,13 @@ One command. Runs 100% locally. No account, no telemetry, nothing leaves your ma
 | **Never reads** | conversation history, session transcripts, source code, documents, credentials, API keys or environment secrets |
 | **Uploads** | nothing: there is no server component and no remote endpoint besides the two optional calls below |
 | **Network** | only when you ask for it. `update` fetches the HTTP catalogs **you** configure; `upgrade` / the daily update check reads the npm registry for the latest version number (cached 24 h — disable with `"checkUpdates": "off"`, `SKILLS_DOCTOR_UPDATE_CHECK=0` or `--no-update-check`) |
-| **Writes** | only what you asked for: the HTML/JSON report, `.skills-doctor-archive/`, `.skills-doctor.json`, the lockfile, and the plugin/MCP/skill entries created by `install` |
+| **Writes** | only what you asked for: `.skills-doctor-archive/`, `.skills-doctor.json`, the lockfile, and the plugin/MCP/skill entries created by `install` |
 
 `opencode.json(c)` and MCP configs can contain credentials; they are parsed locally only to find the relevant entries, and those values are never sent anywhere nor included in a report. Reports contain file paths and skill descriptions (which are part of your skill files), never file bodies. `check`, `plan`, `scan`, `fix --dry-run` and `mcp` all work with the network fully offline.
 
-## See it
+## What you see
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/wangyuchen5110/opencodeplugginprogram/main/docs/assets/report.png" alt="skills-doctor HTML report" width="82%">
-</p>
-
-A real `check --html` run: summary cards, the context-budget bar, filterable findings, and the exact potential savings.
+In OpenCode 2, the first message of a session gets one notice in the chat when a skill is over budget, shadowed, or broken. It names at most three problems and does not change any file. `/skills-doctor` posts that notice again. The terminal `check` and `--json` output stay for CI.
 
 ## How it works
 
@@ -86,7 +82,7 @@ flowchart LR
   C --> D["lint<br/>16 rules + token budget"]
   D --> E{"findings?"}
   E -->|"yes"| F["plan / fix<br/>trim · hide · archive"]
-  E -->|"always"| G["report<br/>terminal · JSON · HTML"]
+  E -->|"always"| G["tell you<br/>chat · terminal · JSON"]
   F --> G
   G --> H["you · CI · the agent"]
 ```
@@ -102,15 +98,12 @@ npx -y opencode-skills-doctor check
 
 # how many tokens can I actually cut?
 npx -y opencode-skills-doctor plan
-
-# shareable HTML report
-npx -y opencode-skills-doctor check --html report.html --open
 ```
 
 ## Install
 
 ```powershell
-# OpenCode — plugin + /skills-doctor, /skills-report, /skills-upgrade commands
+# OpenCode — plugin + /skills-doctor and /skills-upgrade
 npx -y opencode-skills-doctor install              # auto-detects 1.x / 2.x / Desktop
 npx -y opencode-skills-doctor install --client desktop
 
@@ -149,16 +142,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: wangyuchen5110/opencodeplugginprogram@v0.9.6
+      - uses: wangyuchen5110/opencodeplugginprogram@v0.9.7
         with:
           budget: "1200"
           fail-on: warn             # error | warn | never
-          html: skills-report.html  # written and uploaded as an artifact
           comment: "true"           # post the summary on the PR
 ```
 
-It writes a summary to the job page, uploads the HTML report, optionally comments
-on the pull request, and fails the job according to `fail-on`.
+It writes a summary to the job page, optionally comments on the pull request,
+and fails the job according to `fail-on`.
 
 | Input | Default | Purpose |
 |---|---|---|
@@ -166,7 +158,6 @@ on the pull request, and fails the job according to `fail-on`.
 | `budget` | `1200` | Description tokens paid per model step |
 | `fail-on` | `error` | Fail on `error`, `warn`, or `never` |
 | `extra-args` | — | Extra `check` flags, e.g. `--no-global` |
-| `html` | — | HTML report path; uploaded as an artifact when set |
 | `comment` | `false` | Post/append the summary as a pull request comment |
 
 Outputs: `exit-code`, `error-count`, `warning-count`, `advertised-tokens`.

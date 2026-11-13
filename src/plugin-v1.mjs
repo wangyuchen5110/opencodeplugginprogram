@@ -1,6 +1,5 @@
 import { tool } from "@opencode-ai/plugin"
-import { auditSkills, formatMarkdown } from "./audit.mjs"
-import { writeHtmlReport } from "./html.mjs"
+import { auditSkills, formatChat } from "./audit.mjs"
 import { budgetWarning } from "./warning.mjs"
 import { loadConfig } from "./config.mjs"
 import { checkForUpdate, resolveMode, toolVersion } from "./self-update.mjs"
@@ -33,27 +32,21 @@ export const SkillsDoctorPlugin = async ({ directory }) => ({
   tool: {
     skills_doctor: tool({
       description:
-        "Audit installed agent skills (OpenCode, Claude Code, Grok, Cursor, Hermes, Kimi, DSH): shadowing, per-step token budget and fix hints. Returns a markdown report.",
+        "Audit installed agent skills and return a short briefing to say to the user in the chat. Does not write a file.",
       args: z.object({
         directory: z.string().optional().describe("Directory to audit (defaults to the current project)"),
         budget: z.number().optional().describe("Description token budget (default 1200)"),
-        html: z.string().optional().describe("Optional path; when set, a self-contained HTML report is written there"),
       }),
       execute: async (args) => {
         const cwd = args.directory || directory || process.cwd()
-        const audit = auditSkills({ cwd, budget: typeof args.budget === "number" ? args.budget : null, lang: "en" })
-        let markdown = formatMarkdown(audit)
-        if (typeof args.html === "string" && args.html.trim()) {
-          const file = writeHtmlReport(audit, args.html.trim(), { title: "skills-doctor report" })
-          markdown += `\n\nHTML report written to \`${file}\``
-        }
-        return markdown
+        const audit = auditSkills({ cwd, budget: typeof args.budget === "number" ? args.budget : null })
+        return formatChat(audit)
       },
     }),
   },
   "experimental.chat.system.transform": async (input, output) => {
     const warning = budgetWarning({ cwd: directory, sessionID: input?.sessionID })
-    if (warning) output.system.push(warning)
+    if (warning) output.system.push(`Say this to the user in the chat. Do not write a file.\n\n${warning}`)
     const note = await updateNote({ directory, sessionID: input?.sessionID })
     if (note) output.system.push(note)
   },

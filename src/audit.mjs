@@ -67,6 +67,35 @@ export function auditSkills({
   }
 }
 
+/**
+ * 给对话用的短结论。agent 应原样告诉用户，不要再写成文件。
+ */
+export function formatChat(audit, { limit = 3 } = {}) {
+  const zh = audit.lang === "zh"
+  const problems = audit.findings.filter((finding) => finding.severity === "error" || finding.severity === "warn")
+  if (!problems.length) {
+    return zh
+      ? `skills-doctor：技能没有需要处理的问题。${audit.summary.advertised} 个会在每一步注入，大约 ${audit.summary.advertisedTokens} token。`
+      : `skills-doctor: no skill problems to act on. ${audit.summary.advertised} skills are injected on every step, about ${audit.summary.advertisedTokens} tokens.`
+  }
+  const lines = [
+    zh ? "skills-doctor：" : "skills-doctor:",
+    zh
+      ? `技能有 ${problems.length} 个问题：`
+      : `${problems.length} skill problem${problems.length === 1 ? "" : "s"}:`,
+  ]
+  for (const finding of problems.slice(0, limit)) lines.push(`- ${finding.message}`)
+  if (problems.length > limit) {
+    lines.push(zh ? `- 还有 ${problems.length - limit} 条，需要的话我再展开。` : `- ${problems.length - limit} more. Ask if you want them.`)
+  }
+  lines.push(
+    zh
+      ? "我不会改文件。你确认之后，我可以归档被盖住的副本，或把不常用的藏起来。"
+      : "I will not change any files. After you confirm, I can archive shadowed copies or hide skills you rarely use.",
+  )
+  return lines.join("\n")
+}
+
 /** 把审计结果渲染成适合给 agent / PR 评论用的 markdown。 */
 export function formatMarkdown(audit, { limit = 25 } = {}) {
   const lines = []

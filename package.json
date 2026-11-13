@@ -1,7 +1,7 @@
 {
   "name": "opencode-skills-doctor",
-  "version": "0.9.6",
-  "description": "Audit, fix and update agent skills: token cost, broken references, shadowed duplicates, HTML reports, catalog sync. CLI, OpenCode plugin, MCP server; works with OpenCode, Claude Code, Codex, Grok CLI, Cursor, Hermes Agent, Kimi Code and DeepSeek Harness.",
+  "version": "0.9.7",
+  "description": "Audit, fix and update agent skills: token cost, broken references, shadowed duplicates, catalog sync. Tells you in the chat. CLI, OpenCode plugin, MCP server; works with OpenCode, Claude Code, Codex, Grok CLI, Cursor, Hermes Agent, Kimi Code and DeepSeek Harness.",
   "type": "module",
   "exports": {
     ".": "./src/plugin.mjs",

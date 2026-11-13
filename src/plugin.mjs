@@ -1,6 +1,6 @@
 import { Plugin } from "@opencode/plugin"
-import { auditSkills, formatMarkdown } from "./audit.mjs"
-import { writeHtmlReport } from "./html.mjs"
+import { auditSkills, formatChat } from "./audit.mjs"
+import { postChatNotice, chatNoticeVisible } from "./notify.mjs"
 import { budgetWarning } from "./warning.mjs"
 import { loadConfig } from "./config.mjs"
 import { checkForUpdate, resolveMode, toolVersion } from "./self-update.mjs"
@@ -35,16 +35,12 @@ export default Plugin.define({
       editor.namespace({ name: "skills", description: "OpenCode skill diagnostics" })
       editor.add({
         name: "doctor",
-        description: "Audit installed agent skills (OpenCode, Claude Code, Grok, Cursor, Hermes, Kimi, DSH): shadowing, per-step token budget and fix hints",
+        description: "Audit installed agent skills and return a short briefing to say to the user in the chat. Does not write a file.",
         input: {
           type: "object",
           properties: {
             directory: { type: "string", description: "Directory to audit (defaults to the current project)" },
             budget: { type: "number", description: "Description token budget (default 1200)" },
-            html: {
-              type: "string",
-              description: "Optional path; when set, a self-contained HTML report is written there",
-            },
           },
           additionalProperties: false,
         },
@@ -52,13 +48,8 @@ export default Plugin.define({
         execute: async (input) => {
           const directory = (input && typeof input.directory === "string" && input.directory) || ctx.location.directory
           const budget = input && typeof input.budget === "number" ? input.budget : null
-          const audit = auditSkills({ cwd: directory, budget, lang: "en" })
-          let markdown = formatMarkdown(audit)
-          if (input && typeof input.html === "string" && input.html.trim()) {
-            const file = writeHtmlReport(audit, input.html.trim(), { title: "skills-doctor report" })
-            markdown += `\n\nHTML report written to \`${file}\``
-          }
-          return { content: markdown }
+          const audit = auditSkills({ cwd: directory, budget })
+          return { content: formatChat(audit) }
         },
       })
     })
@@ -66,25 +57,15 @@ export default Plugin.define({
     await ctx.command.transform((editor) => {
       editor.add({
         name: "skills-doctor",
-        description: "Audit local OpenCode skills",
-        execute: async ({ sessionID, prompt, delivery }) => {
-          await ctx.session.prompt({
-            ...prompt,
+        description: "Tell the user about skill problems in this chat",
+        execute: async ({ sessionID }) => {
+          await postChatNotice({
             sessionID,
-            text: "Run a skills audit with the skills_doctor tool, then summarize the top issues and propose concrete fixes.",
-            delivery,
-          })
-        },
-      })
-      editor.add({
-        name: "skills-report",
-        description: "Write a self-contained HTML skills report to a path you choose",
-        execute: async ({ sessionID, prompt, delivery }) => {
-          await ctx.session.prompt({
-            ...prompt,
-            sessionID,
-            text: "Ask me where to save the HTML report (a file path, default ./skills-report.html), then call the skills_doctor tool with the html argument set to that path and tell me where it was written.",
-            delivery,
+            cwd: ctx.location.directory,
+            synthetic: (input) => ctx.session.synthetic(input),
+            resume: true,
+            force: true,
+            when: "always",
           })
         },
       })
@@ -102,10 +83,32 @@ export default Plugin.define({
       })
     })
 
-    // 每个会话最多注入一次预算预警，避免刷屏
+    // 用户发消息时，把问题直接写进对话。resume 为 false，不额外叫醒模型。
+    // 没有 prompt hook 的旧宿主仍靠下面的 context 退路。
+    try {
+      await ctx.session.hook("prompt", async (event) => {
+        await postChatNotice({
+          sessionID: event.sessionID,
+          cwd: ctx.location.directory,
+          synthetic: (input) => ctx.session.synthetic(input),
+        })
+      })
+    } catch {
+      // 旧版本不认识这个 hook
+    }
+
+    // 通知已经出现在对话里时，不再把同一段话塞进系统提示。
+    // 老版本没有 synthetic 时，退回系统提示，让模型在回复里说出来。
     await ctx.session.hook("context", async (event) => {
-      const warning = budgetWarning({ cwd: ctx.location.directory, sessionID: event.sessionID })
-      if (warning) event.system.push({ type: "text", text: warning })
+      if (!chatNoticeVisible(ctx.location.directory, event.sessionID)) {
+        const warning = budgetWarning({ cwd: ctx.location.directory, sessionID: event.sessionID })
+        if (warning) {
+          event.system.push({
+            type: "text",
+            text: `Say this to the user in the chat. Do not write a file.\n\n${warning}`,
+          })
+        }
+      }
       const note = await updateNote({ directory: ctx.location.directory, sessionID: event.sessionID })
       if (note) event.system.push({ type: "text", text: note })
     })

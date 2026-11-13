@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.7
+
+- The audit talks in the chat. OpenCode 2 posts one synthetic notice per session (a timeline row, not a system-prompt aside). `/skills-doctor` posts the same notice. The tool, MCP server and 1.x command return that short briefing.
+- HTML reports are gone: no `check --html`, no `--open`, no plugin or MCP `html` argument, no `/skills-report`, no Action artifact. `uninstall` still removes a previously generated `skills-report` command.
+- Nothing is written until you confirm an archive or a hide.
+- Tests: 73.
+
 ## 0.9.6
 
 - Token estimate is a word-piece count: a short English word is 1 token, each CJK character is 1, longer words add one token per four extra characters. `hello` is no longer counted as 2.

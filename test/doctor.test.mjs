@@ -11,15 +11,15 @@ import { discoverSources, scanAll, stripJsonc, findProjectRoot, pathChain } from
 import { lint, resolveWinners, summarize } from "../src/lint.mjs"
 import { updateCatalogs, validateCatalogEntry } from "../src/catalog.mjs"
 import { planFixes, applyFixes, hideSkills } from "../src/fix.mjs"
-import { auditSkills, formatMarkdown } from "../src/audit.mjs"
+import { auditSkills, formatMarkdown, formatChat } from "../src/audit.mjs"
 import { decideFail, renderSummary } from "../scripts/action-summary.mjs"
 import { extractReferences } from "../src/refs.mjs"
-import { renderHtml, writeHtmlReport } from "../src/html.mjs"
 import { handleMessage, toolDefinition, startMcpServer, PROTOCOL_VERSION } from "../src/mcp.mjs"
 import { installOpenCode, uninstallOpenCode } from "../src/install.mjs"
 import { installDsh, uninstallDsh } from "../src/dsh.mjs"
 import { installKimi, uninstallKimi } from "../src/kimi.mjs"
 import { budgetWarning, resetWarningState } from "../src/warning.mjs"
+import { postChatNotice, resetChatNotices, chatNoticeVisible } from "../src/notify.mjs"
 import { compareVersions, resolveMode, checkForUpdate, upgradeCommand } from "../src/self-update.mjs"
 import { planBudget, trimDescription } from "../src/plan.mjs"
 import { readAsarVersion, detectDesktop } from "../src/desktop.mjs"
@@ -367,46 +367,86 @@ test("lint: 断链引用、非法 frontmatter、空正文", () => {
   assert.ok(rules.includes("empty-body"))
 })
 
-test("html: 渲染自包含报告并转义内容", () => {
+test("formatChat: 对话里只说前三条，没有问题时给一句结论", () => {
+  const quiet = tmpdir()
+  fs.mkdirSync(path.join(quiet, ".git"))
+  skill(path.join(quiet, ".opencode", "skills"), "alpha", "description: alpha skill")
+  const clean = formatChat(auditSkills({ cwd: quiet, includeGlobal: false, lang: "en" }))
+  assert.match(clean, /^skills-doctor: no skill problems/)
+  assert.match(clean, /1 skills are injected/)
+  assert.equal(clean.includes("\n- "), false)
+
   const project = tmpdir()
   fs.mkdirSync(path.join(project, ".git"))
-  skill(path.join(project, ".opencode", "skills"), "safe", 'description: "`<script>alert(1)</script>` long description"')
+  for (let i = 0; i < 6; i++) {
+    skill(path.join(project, ".opencode", "skills"), `budget-${i}`, `description: ${"x".repeat(300)}`)
+  }
+  const briefing = formatChat(auditSkills({ cwd: project, includeGlobal: false, lang: "en" }))
+  assert.match(briefing, /^skills-doctor:/)
+  assert.equal(briefing.split("\n").filter((line) => line.startsWith("- ")).length, 4)
+  assert.match(briefing, /more\. Ask if you want them/)
+  assert.match(briefing, /I will not change any files/)
 
-  const audit = auditSkills({ cwd: project, includeGlobal: false, lang: "en" })
-  const html = renderHtml(audit, { title: "test report" })
-
-  assert.match(html, /^<!doctype html>/)
-  assert.match(html, /test report/)
-  assert.match(html, /Context budget/)
-  assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/)
-  assert.ok(!html.includes("<script>alert(1)</script>"))
+  const zh = formatChat(auditSkills({ cwd: project, includeGlobal: false, lang: "zh" }))
+  assert.match(zh, /^skills-doctor：/)
+  assert.match(zh, /我不会改文件/)
 })
 
-test("CLI: --html 写出报告并在 JSON 里返回路径", async () => {
+test("chat notice: 有问题才发，每个会话一次，失败不算已经显示", async () => {
   const project = tmpdir()
   fs.mkdirSync(path.join(project, ".git"))
   skill(path.join(project, ".opencode", "skills"), "alpha", "description: alpha skill")
-  const out = path.join(tmpdir(), "report", "skills.html")
+  resetChatNotices()
+  const calls = []
+  const synthetic = async (input) => {
+    calls.push(input)
+  }
 
-  await runCli(["check", "--root", project, "--no-global", "--html", out])
-  assert.ok(fs.existsSync(out))
-  const html = fs.readFileSync(out, "utf8")
-  assert.match(html, /alpha/)
+  assert.equal(
+    await postChatNotice({ sessionID: "quiet", cwd: project, includeGlobal: false, synthetic }),
+    null,
+  )
+  assert.equal(calls.length, 0)
+  assert.equal(chatNoticeVisible(project, "quiet"), false)
 
-  const json = await runCli([
-    "check",
-    "--root",
-    project,
-    "--no-global",
-    "--json",
-    "--html",
-    path.join(tmpdir(), "r2.html"),
-  ])
-  const parsed = JSON.parse(json.output)
-  assert.ok(parsed.html.endsWith(".html"))
+  for (let i = 0; i < 6; i++) {
+    skill(path.join(project, ".opencode", "skills"), `budget-${i}`, `description: ${"x".repeat(300)}`)
+  }
+  const first = await postChatNotice({ sessionID: "s1", cwd: project, includeGlobal: false, synthetic })
+  assert.match(first, /skills-doctor[:：]/)
+  assert.equal(calls.length, 1)
+  assert.equal(calls[0].description, "skills-doctor")
+  assert.equal(calls[0].resume, false)
+  assert.equal(calls[0].sessionID, "s1")
+  assert.equal(chatNoticeVisible(project, "s1"), true)
+  assert.equal(await postChatNotice({ sessionID: "s1", cwd: project, includeGlobal: false, synthetic }), null)
+  assert.equal(calls.length, 1)
+
+  const again = await postChatNotice({
+    sessionID: "s1",
+    cwd: project,
+    includeGlobal: false,
+    synthetic,
+    force: true,
+    when: "always",
+    resume: true,
+  })
+  assert.match(again, /skills-doctor[:：]/)
+  assert.equal(calls.at(-1).resume, true)
+
+  let failed = 0
+  const boom = async () => {
+    failed += 1
+    throw new Error("no synthetic")
+  }
+  assert.equal(await postChatNotice({ sessionID: "s2", cwd: project, includeGlobal: false, synthetic: boom }), null)
+  assert.equal(failed, 1)
+  assert.equal(chatNoticeVisible(project, "s2"), false)
+  assert.equal(await postChatNotice({ sessionID: "s2", cwd: project, includeGlobal: false, synthetic: boom }), null)
+  assert.equal(failed, 1)
 })
 
-test("MCP: tools/call 支持 html 参数落盘", async () => {
+test("MCP: tools/call 只返回对话简报，不写文件", async () => {
   const project = tmpdir()
   fs.mkdirSync(path.join(project, ".git"))
   skill(path.join(project, ".opencode", "skills"), "alpha", "description: alpha skill")
@@ -416,10 +456,12 @@ test("MCP: tools/call 支持 html 参数落盘", async () => {
     jsonrpc: "2.0",
     id: 9,
     method: "tools/call",
-    params: { name: "skills_doctor", arguments: { directory: project, global: false, html: out } },
+    params: { name: "skills_doctor", arguments: { directory: project, global: false, lang: "en", html: out } },
   })
-  assert.ok(fs.existsSync(out))
-  assert.match(response.result.content[0].text, /HTML report written to/)
+  assert.equal(fs.existsSync(out), false)
+  assert.equal(response.result.content[0].text.includes("html"), false)
+  assert.match(response.result.content[0].text, /skills-doctor: no skill problems/)
+  assert.equal(toolDefinition().inputSchema.properties.html, undefined)
 })
 
 test("discovery: 扫描 Grok / Cursor / Hermes 的 skill 目录", () => {
@@ -861,7 +903,7 @@ test("install: 1.x 写插件入口、命令、配置与 package.json，且幂等
   assert.equal(first.errors.length, 0)
   assert.ok(fs.existsSync(path.join(dir, "plugins", "skills-doctor.js")))
   assert.ok(fs.existsSync(path.join(dir, "command", "skills-doctor.md")))
-  assert.ok(fs.existsSync(path.join(dir, "command", "skills-report.md")))
+  assert.equal(fs.existsSync(path.join(dir, "command", "skills-report.md")), false)
 
   const cfg = JSON.parse(fs.readFileSync(path.join(dir, "opencode.json"), "utf8"))
   assert.ok(Array.isArray(cfg.plugin))
@@ -903,6 +945,10 @@ test("install: --dry-run 不写任何文件", () => {
 test("uninstall: 1.x 移除条目、删除生成文件；2.x 移除 plugins", () => {
   const dir1 = tmpdir()
   installOpenCode({ configDir: dir1, version: "1.18.4", installPackage: false })
+  write(
+    path.join(dir1, "command", "skills-report.md"),
+    "---\ndescription: old report\n---\nCall the skills_doctor tool and write an HTML file.\n",
+  )
   const result1 = uninstallOpenCode({ configDir: dir1, version: "1.18.4", removePackage: false })
   assert.equal(result1.errors.length, 0)
   assert.ok(!fs.existsSync(path.join(dir1, "plugins", "skills-doctor.js")))
@@ -1221,8 +1267,8 @@ test("MCP: initialize / tools/list / tools/call / 错误处理", async () => {
     method: "tools/call",
     params: { name: "skills_doctor", arguments: { directory: project, lang: "en", global: false } },
   })
-  assert.match(call.result.content[0].text, /# skills-doctor/)
-  assert.match(call.result.content[0].text, /1 definitions/)
+  assert.match(call.result.content[0].text, /skills-doctor: no skill problems/)
+  assert.match(call.result.content[0].text, /1 skills are injected/)
 
   const unknown = await handleMessage({ jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "nope", arguments: {} } })
   assert.equal(unknown.error.code, -32602)

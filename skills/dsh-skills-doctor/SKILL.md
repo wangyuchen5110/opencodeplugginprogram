@@ -21,9 +21,9 @@ npx -y opencode-skills-doctor check --json
 Read `summary.advertisedTokens` (cost per model step), `summary.advertised` and `findings[]`.
 If the command fails, fall back to `opencode-skills-doctor` when installed globally, or ask the user to run it from the repo.
 
-## 2. Explain the top findings
+## 2. Tell the user in this chat
 
-Report at most three findings, in plain language, each with its token impact:
+Say at most three findings, in plain language. Do not write a report file.
 
 - `token-budget` — descriptions cost roughly N tokens on **every** model step;
 - `shadowed` — the same skill ID loads from several places, only one wins;
@@ -47,8 +47,3 @@ Report `recommended.savings` (per step), `recommended.final` and `recommended.st
 - Trim descriptions manually, keeping them discoverable
 - Ask first, then re-run `check` to confirm the new cost
 
-## 5. Optional shareable report
-
-```powershell
-npx -y opencode-skills-doctor check --html skills-report.html --open
-```

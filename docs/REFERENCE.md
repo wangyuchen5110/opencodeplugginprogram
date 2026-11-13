@@ -13,7 +13,7 @@ Local scanner, linter, fixer, updater and **OpenCode plugin** for agent skills �
 | **Skill sources** | `.opencode/skills`, `.claude/skills`, `.agents/skills`, `.grok/skills`, `.cursor/skills`, `.hermes/skills`, `.kimi-code/skills`, `opencode.json(c)` entries, HTTP catalogs |
 | **What it finds** | shadowed IDs, duplicates, long descriptions, oversized bodies, per-step token budget, broken file references, invalid frontmatter, empty bodies, stale skills |
 | **What it fixes** | archives shadowed definitions (reversible), hides low-frequency skills, syncs catalogs with drift detection |
-| **Reports** | terminal, JSON, or a self-contained HTML report (`--html [file] --open`) |
+| **Reports** | a chat notice in OpenCode, plus the terminal and JSON |
 | **Plan** | exact token savings: trim descriptions and/or hide skills, projected over N steps |
 | **Cost** | CLI: 0 tokens. Plugin: ~191 tokens/step for the tool definition, plus a one-time warning per session |
 | **Requirements** | Node ≥ 20, zero runtime dependencies |
@@ -82,20 +82,13 @@ skills-doctor check
 skills-doctor check --json
 skills-doctor check --budget 800 --strict    # for CI
 skills-doctor check --root .\some-project --no-global
-skills-doctor check --html report.html       # self-contained HTML report
-skills-doctor check --html report.html --open
 ```
 
-### HTML report
+### Chat notice
 
-`--html [file]` writes a single self-contained HTML file (no external assets):
+OpenCode 2 posts one notice in the session the first time you send a message, when there is an error or a warning. The notice is a synthetic message with the description `skills-doctor`, so it shows as its own row. It does not start another model turn. `/skills-doctor` posts it again, including when nothing is wrong. The tool and the MCP server return the same short text and do not write a file. At most three findings are listed. Archive and hide still wait for you to confirm.
 
-- summary cards and a context-budget bar;
-- findings filterable by severity and text;
-- a skill table with scope, token cost, description preview and file path;
-- default path `./skills-report.html` when `--html` is given without a value; `--open` launches the browser.
-
-The plugin and MCP tool accept the same thing as an `html` argument, so the agent can ask you where to save it — for example: *"save the report to D:\reports\skills.html"*.
+On OpenCode 1.x the same text is handed to the model with an instruction to say it in the chat.
 
 ### `plan` (how many tokens can I actually save?)
 
@@ -112,7 +105,7 @@ It answers "how much can I cut, exactly?":
 - **Option B** hides the fewest skills needed to reach the budget (still loadable with `@id`; picking the largest savings first is optimal for "minimal hides");
 - **Recommended** trims first, then hides, with no double counting, and projects the saving over `--steps` model steps (default 100).
 
-`check` prints a one-line pointer when you are over budget, and the HTML report shows the same potential-savings card.
+`check` prints a one-line pointer when you are over budget. `plan` is the breakdown.
 
 ### `scan`
 
@@ -223,9 +216,8 @@ The package also exports an OpenCode 2.x plugin:
 
 It registers:
 
-- the `skills_doctor` tool (namespace `skills`) — the agent can audit with `{ directory?, budget?, html? }` and gets a markdown report;
-- the `/skills-doctor` command — asks the agent to run the audit and summarize fixes;
-- `/skills-report` — asks where to save an HTML report, then writes it;
+- the `skills_doctor` tool (namespace `skills`) — `{ directory?, budget? }` returns the short chat briefing and writes nothing;
+- `/skills-doctor` — posts that briefing in the chat;
 - `/skills-upgrade` — checks whether skills-doctor itself has a newer version.
 
 `@opencode/plugin` is an optional peer dependency; OpenCode provides it at runtime.
@@ -267,7 +259,7 @@ npx opencode-skills-doctor install --client desktop
 ```
 
 - detects the app in the standard install locations and reads its bundled core version from `resources/app.asar` (e.g. 1.17.11), then uses the matching plugin API;
-- writes the same plugin entry and `/skills-doctor`, `/skills-report`, `/skills-upgrade` commands as the CLI install — restart the desktop app afterwards;
+- writes the same plugin entry and `/skills-doctor` and `/skills-upgrade` commands as the CLI install — restart the desktop app afterwards;
 - `--client auto` (default) prefers the CLI version when both are installed; `--client opencode` skips desktop detection;
 - `uninstall --client desktop` reverses it.
 
@@ -282,18 +274,17 @@ npx opencode-skills-doctor install
 The installer detects your OpenCode version and wires everything up:
 
 - **2.x** — adds `"plugins": ["opencode-skills-doctor"]` to `opencode.json(c)`;
-- **1.x** — installs the package into `~/.config/opencode`, writes the local plugin entry, generates `/skills-doctor`, `/skills-report` and `/skills-upgrade` markdown commands, sets `"type": "module"`;
+- **1.x** — installs the package into `~/.config/opencode`, writes the local plugin entry, generates `/skills-doctor` and `/skills-upgrade` markdown commands, sets `"type": "module"`;
 - backs up the config file as `<config>.bak-<timestamp>` before editing.
 
 Use `--dry-run` to preview, `--config-dir <dir>` for a custom config location, and `--no-npm` to skip the package install.
 
 Once installed you get:
 
-- the `skills_doctor` tool (with an optional `html` argument to write a report to a path you choose);
-- the `/skills-doctor` command (1.x: generated markdown command; 2.x: plugin command);
-- the `/skills-report` command (2.x) that asks where to save the HTML report;
-- the `/skills-upgrade` command (2.x) that checks for a newer skills-doctor;
-- a one-time system-prompt warning when the skill description budget is exceeded.
+- the `skills_doctor` tool, which returns the chat briefing and writes nothing;
+- `/skills-doctor` (1.x: generated markdown command; 2.x: a notice posted in the chat);
+- `/skills-upgrade` (2.x) that checks for a newer skills-doctor;
+- one chat notice per session when a skill has an error or a warning. On 1.x the same text is given to the model to say out loud. `uninstall` deletes a leftover `/skills-report` command from older installs.
 
 ### Uninstall
 
@@ -346,7 +337,7 @@ npx -y opencode-skills-doctor install --client dsh
 
 It locates `~/.dsh/profiles/<profile>/cordis.patch.yml` (default `desktop`; otherwise `--profile <name>`), inserts the `mcp-skills-doctor` row under an `- insert:` block idempotently, and copies the `skills-doctor-audit` skill into `~/.dsh/skills/`. Restart DSH (or let HMR reload the patch) to load the MCP tool; the skill is watched and appears without a restart.
 
-- tool name `mcp__skills_doctor__skills_doctor`, arguments `directory`, `budget`, `lang`, `global`, `html`;
+- tool name `mcp__skills_doctor__skills_doctor`, arguments `directory`, `budget`, `lang`, `global`;
 - `uninstall --client dsh` removes both the patch entry and the skill;
 - `--dsh-home <dir>` for a non-standard DSH home.
 

@@ -68,7 +68,7 @@ export function renderSummary(audit, { failOn = "error", limit = MAX_ROWS } = {}
   }
 
   lines.push("")
-  lines.push('<sub>next: `npx -y opencode-skills-doctor plan` · `fix --dry-run` · `check --html report.html`</sub>')
+  lines.push("<sub>next: `npx -y opencode-skills-doctor plan` · `fix --dry-run`</sub>")
 
   if (decideFail(audit, failOn)) {
     const reason =

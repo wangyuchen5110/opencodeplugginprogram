@@ -33,7 +33,7 @@ Include the version, a reproduction, the impact, and a suggested fix if you have
 - **No network by default.** Two opt-in/opt-out exceptions: `update` fetches the catalog URLs you configure, and the daily update check reads only the latest version number from the npm registry (24 h cache; disable with `"checkUpdates": "off"`, `SKILLS_DOCTOR_UPDATE_CHECK=0` or `--no-update-check`).
 - **No user data is read.** The tool reads skill files, their referenced resources, agent configuration and its own lockfile. It does not read chat history, session transcripts, source code, documents, model credentials or API keys — and it does not upload anything it reads.
 - **Config files may hold secrets** (`opencode.json(c)`, MCP configs). They are parsed locally only to locate the entries the tool needs; values are never transmitted, printed, or copied into reports.
-- **Reports are local files.** HTML/JSON reports contain file paths and skill descriptions, never file bodies. They can reveal your directory layout, so review them before sharing.
+- **Reports stay on the machine.** Terminal output, JSON, the pull-request comment and the chat notice contain file paths and skill descriptions, never file bodies. They can reveal your directory layout, so review them before sharing.
 - `check`, `plan`, `scan`, `fix --dry-run` and `mcp` are fully offline; you can run them with networking disabled.
 
 ## Risk areas and mitigations

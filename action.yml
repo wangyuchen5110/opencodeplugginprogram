@@ -23,14 +23,6 @@ inputs:
     description: "Additional flags forwarded to `skills-doctor check` (space separated)."
     required: false
     default: ""
-  html:
-    description: "Write an HTML report to this path (relative to the workspace) and upload it as an artifact."
-    required: false
-    default: ""
-  artifact-name:
-    description: "Artifact name for the HTML report."
-    required: false
-    default: "skills-report"
   comment:
     description: "Post the summary as a pull request comment (requires `pull-requests: write`)."
     required: false
@@ -71,13 +63,9 @@ runs:
         INPUT_ROOT: ${{ inputs.root }}
         INPUT_BUDGET: ${{ inputs.budget }}
         INPUT_EXTRA: ${{ inputs.extra-args }}
-        INPUT_HTML: ${{ inputs.html }}
       run: |
         set -euo pipefail
         args=(check --json --root "$INPUT_ROOT" --budget "$INPUT_BUDGET")
-        if [ -n "$INPUT_HTML" ]; then
-          args+=(--html "$INPUT_HTML")
-        fi
         # shellcheck disable=SC2086
         node "$GITHUB_ACTION_PATH/bin/skills-doctor.mjs" "${args[@]}" $INPUT_EXTRA > "$RUNNER_TEMP/skills-audit.json" || true
         if [ ! -s "$RUNNER_TEMP/skills-audit.json" ]; then
@@ -107,15 +95,6 @@ runs:
           const gate = process.argv[2]
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `gate=${gate}\nerrors=${audit.counts.errors}\nwarnings=${audit.counts.warnings}\ntokens=${audit.summary.advertisedTokens}\n`)
         ' "$RUNNER_TEMP/skills-audit.json" "$gate"
-
-    - name: Upload HTML report
-      if: ${{ inputs.html != '' }}
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ inputs.artifact-name }}
-        path: ${{ inputs.html }}
-        if-no-files-found: warn
-        retention-days: 14
 
     - name: Comment on pull request
       if: ${{ always() && inputs.comment == 'true' && github.event.pull_request }}
